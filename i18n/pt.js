@@ -53,5 +53,6 @@ export default {
   'lang-label': 'Idioma',
   'cross-category-note': 'Tambem existem feeds de {site} em categoria(s): {cats}',
   'site-other-categories': 'Este site tem feeds em outras categorias',
-  'uncategorized': 'Sem categoria'
+  'uncategorized': 'Sem categoria',
+  'toggle-site-together': 'Manter sub-feeds juntos'
 };

@@ -15,6 +15,7 @@ function cacheDom() {
   el.toggleProxies = document.getElementById('toggle-proxies');
   el.toggleGroup = document.getElementById('toggle-group');
   el.toggleRegion = document.getElementById('toggle-region');
+  el.toggleSiteTogether = document.getElementById('toggle-site-together');
   el.formatOptions = document.querySelectorAll('.format-option');
   el.downloadBtn = document.getElementById('download-btn');
   el.downloadAltBtn = document.getElementById('download-btn-alt');
@@ -96,6 +97,12 @@ function setupEventListeners() {
     render();
   });
 
+  el.toggleSiteTogether.addEventListener('change', function (e) {
+    filters.keepSiteTogether = e.target.checked;
+    syncToggles();
+    render();
+  });
+
   for (let j = 0; j < el.formatOptions.length; j++) {
     el.formatOptions[j].addEventListener('click', function () {
       if (this.classList.contains('active')) return;
@@ -110,7 +117,7 @@ function setupEventListeners() {
     });
   }
 
-  el.downloadBtn.addEventListener('click', function () { downloadFeeds(true); });
+  el.downloadBtn.addEventListener('click', function () { downloadFeeds(filters.groupOpml || filters.groupByRegion); });
   el.downloadAltBtn.addEventListener('click', function () { downloadFeeds(false); });
 
   el.selectAllBtn.addEventListener('click', function () { selectAllGlobal(); });
@@ -136,12 +143,16 @@ function syncToggles() {
   el.toggleProxies.checked = filters.showProxies;
   el.toggleGroup.checked = filters.groupOpml;
   el.toggleRegion.checked = filters.groupByRegion;
+  el.toggleSiteTogether.checked = filters.keepSiteTogether;
 
   let mainOnly = filters.mainFeedOnly;
   el.toggleStale.disabled = mainOnly;
   el.toggleProxies.disabled = mainOnly;
   el.toggleStale.parentElement.style.opacity = mainOnly ? '0.5' : '1';
   el.toggleProxies.parentElement.style.opacity = mainOnly ? '0.5' : '1';
+
+  let grouped = filters.groupOpml || filters.groupByRegion;
+  el.downloadAltBtn.hidden = !grouped;
 }
 
 /* --- Language switching --- */

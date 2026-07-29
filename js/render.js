@@ -140,24 +140,53 @@ export function render() {
     for (let i = 0; i < visibleFeeds.length; i++) {
       let feed = visibleFeeds[i];
       let region = feed.region || 'uncategorized';
-      if (!groupedByRegion[region]) groupedByRegion[region] = [];
-      groupedByRegion[region].push(feed);
+      
+      if (filters.keepSiteTogether) {
+        // Assign site to single region (first/main feed's region)
+        let siteId = feed.siteId;
+        if (!groupedByRegion[region]) groupedByRegion[region] = {};
+        if (!groupedByRegion[region][siteId]) groupedByRegion[region][siteId] = { name: feed.siteName, feeds: [] };
+        groupedByRegion[region][siteId].feeds.push(feed);
+      } else {
+        if (!groupedByRegion[region]) groupedByRegion[region] = [];
+        groupedByRegion[region].push(feed);
+      }
     }
 
     let sortedRegions = Object.keys(groupedByRegion).sort();
     for (let r = 0; r < sortedRegions.length; r++) {
       let regionKey = sortedRegions[r];
-      let feedsInRegion = groupedByRegion[regionKey];
+      let regionData = groupedByRegion[regionKey];
       let regionLabel = regions[regionKey] || t('uncategorized');
-      frag.appendChild(buildGroup('group-region-label', regionLabel, feedsInRegion, siteCategoryMap, 'region', regionKey));
+      
+      if (filters.keepSiteTogether) {
+        // Flatten sites into feeds array for buildGroup
+        let feedsInRegion = [];
+        let siteIds = Object.keys(regionData).sort();
+        for (let s = 0; s < siteIds.length; s++) {
+          let sid = siteIds[s];
+          feedsInRegion.push(...regionData[sid].feeds);
+        }
+        frag.appendChild(buildGroup('group-region-label', regionLabel, feedsInRegion, siteCategoryMap, 'region', regionKey));
+      } else {
+        frag.appendChild(buildGroup('group-region-label', regionLabel, regionData, siteCategoryMap, 'region', regionKey));
+      }
     }
   } else if (filters.groupOpml) {
     let grouped = {};
     for (let i = 0; i < visibleFeeds.length; i++) {
       let feed = visibleFeeds[i];
       let cat = feed.category || 'uncategorized';
-      if (!grouped[cat]) grouped[cat] = [];
-      grouped[cat].push(feed);
+      
+      if (filters.keepSiteTogether) {
+        let siteId = feed.siteId;
+        if (!grouped[cat]) grouped[cat] = {};
+        if (!grouped[cat][siteId]) grouped[cat][siteId] = { name: feed.siteName, feeds: [] };
+        grouped[cat][siteId].feeds.push(feed);
+      } else {
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(feed);
+      }
     }
 
     let sortedCats = Object.keys(grouped).sort((a, b) => {
@@ -170,11 +199,21 @@ export function render() {
 
     for (let g = 0; g < sortedCats.length; g++) {
       let catKey = sortedCats[g];
-      let feedsInCat = grouped[catKey];
+      let catData = grouped[catKey];
       let catLabel = categories[catKey]
         ? categories[catKey].label.replace(/\p{Emoji}/gu, '').replace(/\p{Variation_Selector}/gu, '').trim()
         : t('uncategorized');
-      frag.appendChild(buildGroup('group-label', catLabel, feedsInCat, siteCategoryMap, 'category', catKey));
+      
+      if (filters.keepSiteTogether) {
+        let feedsInCat = [];
+        let siteIds = Object.keys(catData).sort();
+        for (let s = 0; s < siteIds.length; s++) {
+          feedsInCat.push(...catData[siteIds[s]].feeds);
+        }
+        frag.appendChild(buildGroup('group-label', catLabel, feedsInCat, siteCategoryMap, 'category', catKey));
+      } else {
+        frag.appendChild(buildGroup('group-label', catLabel, catData, siteCategoryMap, 'category', catKey));
+      }
     }
   } else {
     let feedsBySite = {};
@@ -205,6 +244,9 @@ export function updateDownloadBtns() {
   let disabled = downloadableCount === 0;
   el.downloadBtn.disabled = disabled;
   el.downloadAltBtn.disabled = disabled;
+
+  let isGrouped = filters.groupByRegion || filters.groupOpml;
+  el.downloadAltBtn.hidden = !isGrouped;
 
   let downloadKey;
   if (filters.groupByRegion) {
@@ -347,7 +389,7 @@ function buildSiteGroup(siteId, siteName, feeds, otherCats) {
     wrapper.appendChild(item);
   }
 
-  if (otherCats.length > 0) {
+  if (otherCats.length > 0 && !filters.keepSiteTogether) {
     let note = document.createElement('div');
     note.className = 'cross-category-note';
     let catLabels = otherCats.map(slug => categories[slug] ? categories[slug].label.replace(/\p{Emoji}/gu, '').replace(/\p{Variation_Selector}/gu, '').trim() : slug);

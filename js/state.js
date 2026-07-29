@@ -14,6 +14,7 @@ export const filters = {
   hiddenProxySites: new Set(),
   groupOpml: true,
   groupByRegion: false,
+  keepSiteTogether: false,
   format: 'opml'
 };
 export const el = {};

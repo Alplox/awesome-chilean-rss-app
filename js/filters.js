@@ -44,7 +44,5 @@ export function isFeedDownloadable(feed) {
   if (!filters.showStale && feed.status !== 'active') return false;
   if (feed.isProxy && (!filters.showProxies || filters.hiddenProxySites.has(feed.siteId))) return false;
   if (filters.mainFeedOnly && !feed.isMain) return false;
-  if (filters.category !== 'all' && feed.category !== filters.category) return false;
-  if (filters.region !== 'all' && feed.region !== filters.region) return false;
   return true;
 }

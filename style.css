@@ -671,6 +671,10 @@ body {
   cursor: not-allowed;
 }
 
+.download-btn-alt[hidden] {
+  display: none;
+}
+
 .download-count {
   display: inline-flex;
   align-items: center;
