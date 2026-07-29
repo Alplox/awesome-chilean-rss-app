@@ -50,22 +50,35 @@ function setupEventListeners() {
 
   el.toggleMain.addEventListener('change', function (e) {
     filters.mainFeedOnly = e.target.checked;
+    if (filters.mainFeedOnly) {
+      filters.showStale = false;
+      filters.showProxies = false;
+    }
+    syncToggles();
     render();
   });
 
   el.toggleStale.addEventListener('change', function (e) {
     filters.showStale = e.target.checked;
+    if (filters.showStale) {
+      filters.mainFeedOnly = false;
+    }
+    syncToggles();
     render();
   });
 
   el.toggleProxies.addEventListener('change', function (e) {
     filters.showProxies = e.target.checked;
+    if (filters.showProxies) {
+      filters.mainFeedOnly = false;
+    }
     if (!filters.showProxies) {
       filters.hiddenProxySites.clear();
       for (let p = 0; p < allFeeds.length; p++) {
         if (allFeeds[p].isProxy) selectedFeeds.delete(allFeeds[p].id);
       }
     }
+    syncToggles();
     render();
   });
 
@@ -123,6 +136,12 @@ function syncToggles() {
   el.toggleProxies.checked = filters.showProxies;
   el.toggleGroup.checked = filters.groupOpml;
   el.toggleRegion.checked = filters.groupByRegion;
+
+  let mainOnly = filters.mainFeedOnly;
+  el.toggleStale.disabled = mainOnly;
+  el.toggleProxies.disabled = mainOnly;
+  el.toggleStale.parentElement.style.opacity = mainOnly ? '0.5' : '1';
+  el.toggleProxies.parentElement.style.opacity = mainOnly ? '0.5' : '1';
 }
 
 /* --- Language switching --- */

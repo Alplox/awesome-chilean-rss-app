@@ -2,6 +2,8 @@
 
 Explora y descarga feeds RSS de medios chilenos. Una aplicación web que te permite buscar, filtrar y descargar feeds RSS de diversos medios de comunicación chilenos en formato OPML o HTML.
 
+<https://alplox.github.io/awesome-chilean-rss-app/>
+
 ![Vista principal](./img/home.png)
 
 ## Datos

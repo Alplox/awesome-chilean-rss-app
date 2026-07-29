@@ -1,6 +1,6 @@
 export default {
   'lang-name': 'Espanol',
-  'title': 'awesome-chilean-rss',
+  'title': 'awesome-chilean-rss-app',
   'subtitle': 'Explora y descarga feeds RSS de medios chilenos',
   'filter-category': 'Categoria',
   'filter-category-all': 'Todas las categorias',

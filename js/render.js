@@ -21,10 +21,7 @@ export function showError(msg) {
 }
 
 export function populateFilters() {
-  let sortedCats = Object.keys(categories).sort(function (a, b) {
-    return (categories[a].order || 999) - (categories[b].order || 999);
-  });
-
+  let sortedCats = Object.keys(categories).sort((a, b) => (categories[a].order || 999) - (categories[b].order || 999));
   el.categoryFilter.innerHTML = '<option value="all">' + t('filter-category-all') + '</option>';
   for (let c = 0; c < sortedCats.length; c++) {
     let key = sortedCats[c];
@@ -46,6 +43,75 @@ export function populateFilters() {
   }
 }
 
+function buildGroup(titleKey, titleLabel, feeds, siteCategoryMap, scopeType, scopeKey) {
+  let group = document.createElement('div');
+  group.className = 'category-group';
+
+  let header = document.createElement('div');
+  header.className = 'category-header';
+
+  let title = document.createElement('h2');
+  title.className = 'category-title';
+  title.textContent = t(titleKey, { label: titleLabel });
+  title.addEventListener('click', () => group.classList.toggle('collapsed'));
+  header.appendChild(title);
+
+  let total = feeds.length;
+  let scopeSelected = 0;
+  for (let c = 0; c < feeds.length; c++) {
+    if (selectedFeeds.has(feeds[c].id)) scopeSelected++;
+  }
+  let counter = document.createElement('span');
+  counter.className = 'category-counter';
+  counter.textContent = scopeSelected + '/' + total;
+  header.appendChild(counter);
+
+  let actions = document.createElement('div');
+  actions.className = 'category-actions';
+
+  let selectBtn = document.createElement('button');
+  selectBtn.className = 'category-action';
+  selectBtn.textContent = t('select-all');
+  selectBtn.addEventListener('click', () => selectAllInScope(scopeType, scopeKey));
+  actions.appendChild(selectBtn);
+
+  let deselectBtn = document.createElement('button');
+  deselectBtn.className = 'category-action';
+  deselectBtn.textContent = t('deselect-all');
+  deselectBtn.addEventListener('click', () => deselectAllInScope(scopeType, scopeKey));
+  actions.appendChild(deselectBtn);
+
+  header.appendChild(actions);
+  group.appendChild(header);
+
+  let list = document.createElement('div');
+  list.className = 'category-feeds';
+
+  let feedsBySite = {};
+  for (let i = 0; i < feeds.length; i++) {
+    let feed = feeds[i];
+    if (!feedsBySite[feed.siteId]) feedsBySite[feed.siteId] = { name: feed.siteName, feeds: [] };
+    feedsBySite[feed.siteId].feeds.push(feed);
+  }
+
+  let siteIds = Object.keys(feedsBySite);
+  for (let s = 0; s < siteIds.length; s++) {
+    let sid = siteIds[s];
+    let siteGroup = feedsBySite[sid];
+    let otherCats = [];
+    let entry = siteCategoryMap[sid];
+    if (entry) {
+      let exclude = scopeType === 'category' ? scopeKey : null;
+      otherCats = Object.keys(entry.cats).filter(c => c !== exclude);
+    }
+    let siteEl = buildSiteGroup(sid, siteGroup.name, siteGroup.feeds, otherCats);
+    list.appendChild(siteEl);
+  }
+
+  group.appendChild(list);
+  return group;
+}
+
 export function render() {
   if (!el.feedList) return;
 
@@ -59,7 +125,14 @@ export function render() {
   }
   el.empty.hidden = true;
 
-  let siteCategoryMap = buildSiteCategoryMap();
+  let siteCategoryMap = {};
+  for (let i = 0; i < allFeeds.length; i++) {
+    let feed = allFeeds[i];
+    if (!siteCategoryMap[feed.siteId]) {
+      siteCategoryMap[feed.siteId] = { name: feed.siteName, cats: {} };
+    }
+    siteCategoryMap[feed.siteId].cats[feed.category] = true;
+  }
   let frag = document.createDocumentFragment();
 
   if (filters.groupByRegion) {
@@ -76,9 +149,7 @@ export function render() {
       let regionKey = sortedRegions[r];
       let feedsInRegion = groupedByRegion[regionKey];
       let regionLabel = regions[regionKey] || t('uncategorized');
-
-      let groupEl = buildRegionGroup(regionKey, regionLabel, feedsInRegion, siteCategoryMap);
-      frag.appendChild(groupEl);
+      frag.appendChild(buildGroup('group-region-label', regionLabel, feedsInRegion, siteCategoryMap, 'region', regionKey));
     }
   } else if (filters.groupOpml) {
     let grouped = {};
@@ -89,13 +160,11 @@ export function render() {
       grouped[cat].push(feed);
     }
 
-    let sortedCats = Object.keys(grouped).sort(function (a, b) {
+    let sortedCats = Object.keys(grouped).sort((a, b) => {
       let orderA = categories[a] ? (categories[a].order || 999) : 999;
       let orderB = categories[b] ? (categories[b].order || 999) : 999;
       if (orderA !== orderB) return orderA - orderB;
-      if (categories[a] && categories[b]) {
-        return (categories[a].label || a).localeCompare(categories[b].label || b);
-      }
+      if (categories[a] && categories[b]) return (categories[a].label || a).localeCompare(categories[b].label || b);
       return a.localeCompare(b);
     });
 
@@ -105,17 +174,13 @@ export function render() {
       let catLabel = categories[catKey]
         ? categories[catKey].label.replace(/\p{Emoji}/gu, '').replace(/\p{Variation_Selector}/gu, '').trim()
         : t('uncategorized');
-
-      let groupEl = buildCategoryGroup(catKey, catLabel, feedsInCat, siteCategoryMap);
-      frag.appendChild(groupEl);
+      frag.appendChild(buildGroup('group-label', catLabel, feedsInCat, siteCategoryMap, 'category', catKey));
     }
   } else {
     let feedsBySite = {};
     for (let u = 0; u < visibleFeeds.length; u++) {
       let vf = visibleFeeds[u];
-      if (!feedsBySite[vf.siteId]) {
-        feedsBySite[vf.siteId] = { name: vf.siteName, feeds: [] };
-      }
+      if (!feedsBySite[vf.siteId]) feedsBySite[vf.siteId] = { name: vf.siteName, feeds: [] };
       feedsBySite[vf.siteId].feeds.push(vf);
     }
 
@@ -123,8 +188,7 @@ export function render() {
     for (let s = 0; s < siteIds.length; s++) {
       let sid = siteIds[s];
       let sg = feedsBySite[sid];
-      let siteEl = buildSiteGroup(sid, sg.name, sg.feeds, []);
-      frag.appendChild(siteEl);
+      frag.appendChild(buildSiteGroup(sid, sg.name, sg.feeds, []));
     }
   }
 
@@ -157,31 +221,6 @@ export function updateDownloadBtns() {
     '<path d="M1.5 10v2a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
     '</svg> <span>' + t(downloadKey) + '</span>' +
     (downloadableCount > 0 ? ' <span class="download-count">' + downloadableCount + '</span>' : '');
-}
-
-function buildSiteCategoryMap() {
-  let map = {};
-  for (let i = 0; i < allFeeds.length; i++) {
-    let feed = allFeeds[i];
-    if (!map[feed.siteId]) {
-      map[feed.siteId] = { name: feed.siteName, cats: {} };
-    }
-    map[feed.siteId].cats[feed.category] = true;
-  }
-  return map;
-}
-
-function getSiteCategories(siteCategoryMap, siteId, currentCategory) {
-  let entry = siteCategoryMap[siteId];
-  if (!entry) return [];
-  return Object.keys(entry.cats).filter(function (c) {
-    return c !== currentCategory;
-  });
-}
-
-function getCategoryLabel(slug) {
-  if (!categories[slug]) return slug;
-  return categories[slug].label.replace(/\p{Emoji}/gu, '').replace(/\p{Variation_Selector}/gu, '').trim();
 }
 
 function buildRegionGroup(regionKey, label, feeds, siteCategoryMap) {
@@ -257,79 +296,6 @@ function buildRegionGroup(regionKey, label, feeds, siteCategoryMap) {
   return group;
 }
 
-function buildCategoryGroup(catKey, label, feeds, siteCategoryMap) {
-  let group = document.createElement('div');
-  group.className = 'category-group';
-
-  let header = document.createElement('div');
-  header.className = 'category-header';
-
-  let title = document.createElement('h2');
-  title.className = 'category-title';
-  title.textContent = t('group-label', { label: label });
-  title.addEventListener('click', function () {
-    group.classList.toggle('collapsed');
-  });
-  header.appendChild(title);
-
-  let total = feeds.length;
-  let catSelected = 0;
-  for (let c = 0; c < feeds.length; c++) {
-    if (selectedFeeds.has(feeds[c].id)) catSelected++;
-  }
-  let catCounter = document.createElement('span');
-  catCounter.className = 'category-counter';
-  catCounter.textContent = catSelected + '/' + total;
-  header.appendChild(catCounter);
-
-  let actions = document.createElement('div');
-  actions.className = 'category-actions';
-
-  let selectBtn = document.createElement('button');
-  selectBtn.className = 'category-action';
-  selectBtn.textContent = t('select-all');
-  selectBtn.addEventListener('click', function () {
-    selectAllInCategory(catKey);
-  });
-  actions.appendChild(selectBtn);
-
-  let deselectBtn = document.createElement('button');
-  deselectBtn.className = 'category-action';
-  deselectBtn.textContent = t('deselect-all');
-  deselectBtn.addEventListener('click', function () {
-    deselectAllInCategory(catKey);
-  });
-  actions.appendChild(deselectBtn);
-
-  header.appendChild(actions);
-  group.appendChild(header);
-
-  let list = document.createElement('div');
-  list.className = 'category-feeds';
-
-  let feedsBySite = {};
-  for (let i = 0; i < feeds.length; i++) {
-    let feed = feeds[i];
-    if (!feedsBySite[feed.siteId]) {
-      feedsBySite[feed.siteId] = { name: feed.siteName, feeds: [] };
-    }
-    feedsBySite[feed.siteId].feeds.push(feed);
-  }
-
-  let siteIds = Object.keys(feedsBySite);
-  for (let s = 0; s < siteIds.length; s++) {
-    let sid = siteIds[s];
-    let siteGroup = feedsBySite[sid];
-
-    let otherCats = getSiteCategories(siteCategoryMap, sid, catKey);
-    let siteEl = buildSiteGroup(sid, siteGroup.name, siteGroup.feeds, otherCats);
-    list.appendChild(siteEl);
-  }
-
-  group.appendChild(list);
-  return group;
-}
-
 function buildSiteGroup(siteId, siteName, feeds, otherCats) {
   let wrapper = document.createElement('div');
   wrapper.className = 'site-group';
@@ -384,7 +350,7 @@ function buildSiteGroup(siteId, siteName, feeds, otherCats) {
   if (otherCats.length > 0) {
     let note = document.createElement('div');
     note.className = 'cross-category-note';
-    let catLabels = otherCats.map(getCategoryLabel);
+    let catLabels = otherCats.map(slug => categories[slug] ? categories[slug].label.replace(/\p{Emoji}/gu, '').replace(/\p{Variation_Selector}/gu, '').trim() : slug);
     note.textContent = t('cross-category-note', {
       site: siteName,
       cats: catLabels.join(', ')
@@ -508,71 +474,30 @@ function toggleFeed(id) {
   updateCounter();
 }
 
-export function selectAllInCategory(catKey) {
+function selectAllInScope(key, scope) {
   let visible = getVisibleFeeds();
   for (let i = 0; i < visible.length; i++) {
-    if (visible[i].category === catKey) {
-      selectedFeeds.add(visible[i].id);
-    }
+    if (scope(visible[i]) === key) selectedFeeds.add(visible[i].id);
   }
   syncCheckboxStates();
   updateCounter();
 }
 
-export function deselectAllInCategory(catKey) {
+function deselectAllInScope(key, scope) {
   let visible = getVisibleFeeds();
   for (let i = 0; i < visible.length; i++) {
-    if (visible[i].category === catKey) {
-      selectedFeeds.delete(visible[i].id);
-    }
+    if (scope(visible[i]) === key) selectedFeeds.delete(visible[i].id);
   }
   syncCheckboxStates();
   updateCounter();
 }
 
-function selectAllInRegion(regionKey) {
-  let visible = getVisibleFeeds();
-  for (let i = 0; i < visible.length; i++) {
-    if (visible[i].region === regionKey) {
-      selectedFeeds.add(visible[i].id);
-    }
-  }
-  syncCheckboxStates();
-  updateCounter();
-}
-
-function deselectAllInRegion(regionKey) {
-  let visible = getVisibleFeeds();
-  for (let i = 0; i < visible.length; i++) {
-    if (visible[i].region === regionKey) {
-      selectedFeeds.delete(visible[i].id);
-    }
-  }
-  syncCheckboxStates();
-  updateCounter();
-}
-
-function selectAllInSite(siteId) {
-  let visible = getVisibleFeeds();
-  for (let i = 0; i < visible.length; i++) {
-    if (visible[i].siteId === siteId) {
-      selectedFeeds.add(visible[i].id);
-    }
-  }
-  syncCheckboxStates();
-  updateCounter();
-}
-
-function deselectAllInSite(siteId) {
-  let visible = getVisibleFeeds();
-  for (let i = 0; i < visible.length; i++) {
-    if (visible[i].siteId === siteId) {
-      selectedFeeds.delete(visible[i].id);
-    }
-  }
-  syncCheckboxStates();
-  updateCounter();
-}
+export function selectAllInCategory(catKey) { selectAllInScope(catKey, f => f.category); }
+export function deselectAllInCategory(catKey) { deselectAllInScope(catKey, f => f.category); }
+function selectAllInRegion(regionKey) { selectAllInScope(regionKey, f => f.region); }
+function deselectAllInRegion(regionKey) { deselectAllInScope(regionKey, f => f.region); }
+function selectAllInSite(siteId) { selectAllInScope(siteId, f => f.siteId); }
+function deselectAllInSite(siteId) { deselectAllInScope(siteId, f => f.siteId); }
 
 function syncCheckboxStates() {
   let checkboxes = el.feedList.querySelectorAll('.feed-checkbox');
@@ -584,52 +509,35 @@ function syncCheckboxStates() {
 
 export function selectAllGlobal() {
   let visible = getVisibleFeeds();
-  for (let i = 0; i < visible.length; i++) {
-    selectedFeeds.add(visible[i].id);
-  }
+  for (let i = 0; i < visible.length; i++) selectedFeeds.add(visible[i].id);
   syncCheckboxStates();
   updateCounter();
 }
 
 export function deselectAllGlobal() {
   let visible = getVisibleFeeds();
-  for (let i = 0; i < visible.length; i++) {
-    selectedFeeds.delete(visible[i].id);
-  }
+  for (let i = 0; i < visible.length; i++) selectedFeeds.delete(visible[i].id);
   syncCheckboxStates();
   updateCounter();
 }
 
 export function deselectHidden() {
   let visible = getVisibleFeeds();
-  let visibleIds = {};
-  for (let i = 0; i < visible.length; i++) {
-    visibleIds[visible[i].id] = true;
-  }
+  let visibleIds = new Set(visible.map(f => f.id));
 
   let narrowing = getFeedsMatchingNarrowingFilters();
-  let narrowingIds = {};
-  for (let i = 0; i < narrowing.length; i++) {
-    narrowingIds[narrowing[i].id] = true;
-  }
-
   let toRemove = [];
   selectedFeeds.forEach(function (id) {
-    if (narrowingIds[id] && !visibleIds[id]) toRemove.push(id);
+    if (!visibleIds.has(id)) toRemove.push(id);
   });
-  for (let j = 0; j < toRemove.length; j++) {
-    selectedFeeds.delete(toRemove[j]);
-  }
+  for (let j = 0; j < toRemove.length; j++) selectedFeeds.delete(toRemove[j]);
   syncCheckboxStates();
   updateCounter();
 }
 
 function updateCounter() {
   let visible = getVisibleFeeds();
-  let visibleIds = {};
-  for (let i = 0; i < visible.length; i++) {
-    visibleIds[visible[i].id] = true;
-  }
+  let visibleIds = new Set(visible.map(f => f.id));
 
   let narrowing = getFeedsMatchingNarrowingFilters();
   let selectedCount = 0;
@@ -640,7 +548,7 @@ function updateCounter() {
   let hiddenCount = 0;
   for (let i = 0; i < narrowing.length; i++) {
     let id = narrowing[i].id;
-    if (selectedFeeds.has(id) && !visibleIds[id]) hiddenCount++;
+    if (selectedFeeds.has(id) && !visibleIds.has(id)) hiddenCount++;
   }
 
   let totalSelected = selectedCount + hiddenCount;

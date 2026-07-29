@@ -1,6 +1,6 @@
 import { allFeeds, filters, selectedFeeds } from './state.js';
 
-export function getVisibleFeeds() {
+function filterFeeds(includeCategoryRegionSearch) {
   let results = [];
 
   for (let i = 0; i < allFeeds.length; i++) {
@@ -9,15 +9,18 @@ export function getVisibleFeeds() {
     if (!filters.showStale && feed.status !== 'active') continue;
     if (feed.isProxy && (!filters.showProxies || filters.hiddenProxySites.has(feed.siteId))) continue;
     if (filters.mainFeedOnly && !feed.isMain) continue;
-    if (filters.category !== 'all' && feed.category !== filters.category) continue;
-    if (filters.region !== 'all' && feed.region !== filters.region) continue;
 
-    if (filters.search) {
-      let q = filters.search.toLowerCase();
-      let nameMatch = feed.feedName.toLowerCase().indexOf(q) !== -1;
-      let siteMatch = feed.siteName.toLowerCase().indexOf(q) !== -1;
-      let descMatch = feed.description.toLowerCase().indexOf(q) !== -1;
-      if (!nameMatch && !siteMatch && !descMatch) continue;
+    if (includeCategoryRegionSearch) {
+      if (filters.category !== 'all' && feed.category !== filters.category) continue;
+      if (filters.region !== 'all' && feed.region !== filters.region) continue;
+
+      if (filters.search) {
+        let q = filters.search.toLowerCase();
+        let nameMatch = feed.feedName.toLowerCase().indexOf(q) !== -1;
+        let siteMatch = feed.siteName.toLowerCase().indexOf(q) !== -1;
+        let descMatch = feed.description.toLowerCase().indexOf(q) !== -1;
+        if (!nameMatch && !siteMatch && !descMatch) continue;
+      }
     }
 
     results.push(feed);
@@ -26,22 +29,12 @@ export function getVisibleFeeds() {
   return results;
 }
 
+export function getVisibleFeeds() {
+  return filterFeeds(true);
+}
+
 export function getFeedsMatchingNarrowingFilters() {
-  let results = [];
-
-  for (let i = 0; i < allFeeds.length; i++) {
-    let feed = allFeeds[i];
-
-    // ONLY visibility toggles - intentional hides (not "hidden" by navigation)
-    if (!filters.showStale && feed.status !== 'active') continue;
-    if (feed.isProxy && (!filters.showProxies || filters.hiddenProxySites.has(feed.siteId))) continue;
-    if (filters.mainFeedOnly && !feed.isMain) continue;
-
-    // NO category/region/search filtering here - those define the view
-    results.push(feed);
-  }
-
-  return results;
+  return filterFeeds(false);
 }
 
 export function isFeedDownloadable(feed) {
@@ -51,5 +44,7 @@ export function isFeedDownloadable(feed) {
   if (!filters.showStale && feed.status !== 'active') return false;
   if (feed.isProxy && (!filters.showProxies || filters.hiddenProxySites.has(feed.siteId))) return false;
   if (filters.mainFeedOnly && !feed.isMain) return false;
+  if (filters.category !== 'all' && feed.category !== filters.category) return false;
+  if (filters.region !== 'all' && feed.region !== filters.region) return false;
   return true;
 }

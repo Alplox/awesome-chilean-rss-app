@@ -229,8 +229,19 @@ body {
 }
 
 .theme-btn:hover {
-  color: var(--text-primary);
   background: var(--selection);
+}
+
+[data-theme="light"] .theme-btn:hover {
+  background: rgba(17,17,17,0.12);
+}
+
+[data-theme="dark"] .theme-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+[data-theme="sepia"] .theme-btn:hover {
+  background: rgba(74,55,40,0.2);
 }
 
 .theme-btn:active {
