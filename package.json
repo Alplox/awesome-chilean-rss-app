@@ -1,0 +1,24 @@
+{
+  "name": "awesome-chilean-rss-app",
+  "version": "1.0.0",
+  "description": "Explora y descarga feeds RSS de medios chilenos. Una aplicación web que te permite buscar, filtrar y descargar feeds RSS de diversos medios de comunicación chilenos en formato OPML o HTML.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alplox/awesome-chilean-rss-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Alplox/awesome-chilean-rss-app/issues"
+  },
+  "homepage": "https://github.com/Alplox/awesome-chilean-rss-app#readme",
+  "dependencies": {
+    "cuelume": "^0.2.1"
+  }
+}

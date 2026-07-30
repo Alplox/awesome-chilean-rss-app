@@ -1,6 +1,7 @@
 import { allFeeds, categories, regions, selectedFeeds, filters, el } from './state.js';
 import { t } from './i18n.js';
 import { getVisibleFeeds, getFeedsMatchingNarrowingFilters, isFeedDownloadable } from './filters.js';
+import { playSuccess } from './sound.js';
 
 export function showLoading() {
   el.loading.hidden = false;
@@ -21,6 +22,18 @@ export function showError(msg) {
 }
 
 export function populateFilters() {
+  let catCounts = {};
+  let regionCounts = {};
+  let proxyCount = 0;
+  let staleCount = 0;
+  for (let i = 0; i < allFeeds.length; i++) {
+    let feed = allFeeds[i];
+    if (feed.isProxy) proxyCount++;
+    if (feed.status !== 'active') staleCount++;
+    if (feed.category) catCounts[feed.category] = (catCounts[feed.category] || 0) + 1;
+    if (feed.region) regionCounts[feed.region] = (regionCounts[feed.region] || 0) + 1;
+  }
+
   let sortedCats = Object.keys(categories).sort((a, b) => (categories[a].order || 999) - (categories[b].order || 999));
   el.categoryFilter.innerHTML = '<option value="all">' + t('filter-category-all') + '</option>';
   for (let c = 0; c < sortedCats.length; c++) {
@@ -28,19 +41,24 @@ export function populateFilters() {
     let label = categories[key].label.replace(/\p{Emoji}/gu, '').replace(/\p{Variation_Selector}/gu, '').trim();
     let opt = document.createElement('option');
     opt.value = key;
-    opt.textContent = label;
+    opt.textContent = label + ' (' + (catCounts[key] || 0) + ')';
     el.categoryFilter.appendChild(opt);
   }
 
-  let sortedRegions = Object.keys(regions).sort();
+  let regionKeys = Object.keys(regions);
   el.regionFilter.innerHTML = '<option value="all">' + t('filter-region-all') + '</option>';
-  for (let r = 0; r < sortedRegions.length; r++) {
-    let rKey = sortedRegions[r];
+  for (let r = 0; r < regionKeys.length; r++) {
+    let rKey = regionKeys[r];
     let rOpt = document.createElement('option');
     rOpt.value = rKey;
-    rOpt.textContent = regions[rKey];
+    rOpt.textContent = regions[rKey] + ' (' + (regionCounts[rKey] || 0) + ')';
     el.regionFilter.appendChild(rOpt);
   }
+
+  let staleText = el.toggleStale.parentElement.querySelector('.toggle-text');
+  if (staleText) staleText.textContent = t(staleText.getAttribute('data-i18n')) + ' (' + staleCount + ')';
+  let proxyText = el.toggleProxies.parentElement.querySelector('.toggle-text');
+  if (proxyText) proxyText.textContent = t(proxyText.getAttribute('data-i18n')) + ' (' + proxyCount + ')';
 }
 
 function buildGroup(titleKey, titleLabel, feeds, siteCategoryMap, scopeType, scopeKey) {
@@ -71,12 +89,14 @@ function buildGroup(titleKey, titleLabel, feeds, siteCategoryMap, scopeType, sco
 
   let selectBtn = document.createElement('button');
   selectBtn.className = 'category-action';
+  selectBtn.setAttribute('data-cuelume-press', '');
   selectBtn.textContent = t('select-all');
   selectBtn.addEventListener('click', () => selectAllInScope(scopeType, scopeKey));
   actions.appendChild(selectBtn);
 
   let deselectBtn = document.createElement('button');
   deselectBtn.className = 'category-action';
+  deselectBtn.setAttribute('data-cuelume-press', '');
   deselectBtn.textContent = t('deselect-all');
   deselectBtn.addEventListener('click', () => deselectAllInScope(scopeType, scopeKey));
   actions.appendChild(deselectBtn);
@@ -357,6 +377,7 @@ function buildSiteGroup(siteId, siteName, feeds, otherCats) {
   if (hasProxy && filters.showProxies) {
     let proxyBtn = document.createElement('button');
     proxyBtn.className = 'site-action';
+    proxyBtn.setAttribute('data-cuelume-press', '');
     let proxyHidden = filters.hiddenProxySites.has(siteId);
     proxyBtn.textContent = t(proxyHidden ? 'show-site-proxies' : 'hide-site-proxies');
     proxyBtn.addEventListener('click', function () {
@@ -367,6 +388,7 @@ function buildSiteGroup(siteId, siteName, feeds, otherCats) {
 
   let selectBtn = document.createElement('button');
   selectBtn.className = 'site-action';
+  selectBtn.setAttribute('data-cuelume-press', '');
   selectBtn.textContent = t('select-all');
   selectBtn.addEventListener('click', function () {
     selectAllInSite(siteId);
@@ -375,6 +397,7 @@ function buildSiteGroup(siteId, siteName, feeds, otherCats) {
 
   let deselectBtn = document.createElement('button');
   deselectBtn.className = 'site-action';
+  deselectBtn.setAttribute('data-cuelume-press', '');
   deselectBtn.textContent = t('deselect-all');
   deselectBtn.addEventListener('click', function () {
     deselectAllInSite(siteId);
@@ -412,6 +435,7 @@ function buildFeedItem(feed) {
   checkbox.type = 'checkbox';
   checkbox.className = 'feed-checkbox';
   checkbox.dataset.feedId = feed.id;
+  checkbox.dataset.cuelumeToggle = '';
   checkbox.checked = selectedFeeds.has(feed.id);
   checkbox.addEventListener('change', function () {
     toggleFeed(feed.id);
@@ -438,6 +462,20 @@ function buildFeedItem(feed) {
   text.appendChild(meta);
   info.appendChild(text);
 
+  if (feed.status !== 'active') {
+    let tag = document.createElement('span');
+    tag.className = 'tag tag-stale';
+    tag.textContent = t('tag-stale');
+    info.appendChild(tag);
+  }
+
+  if (feed.isProxy) {
+    let proxyTag = document.createElement('span');
+    proxyTag.className = 'tag tag-proxy';
+    proxyTag.textContent = t('tag-proxy');
+    info.appendChild(proxyTag);
+  }
+
   let actions = document.createElement('div');
   actions.className = 'feed-actions';
 
@@ -458,11 +496,13 @@ function buildFeedItem(feed) {
   copyBtn.className = 'copy-link';
   copyBtn.setAttribute('aria-label', t('copy-link'));
   copyBtn.title = t('copy-link');
-  copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+  copyBtn.setAttribute('data-cuelume-press', '');
+  copyBtn.innerHTML = '<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="check-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7.5l3.5 3L12 4"/></svg>';
   copyBtn.addEventListener('click', function (e) {
     e.stopPropagation();
     let copy = function () {
       copyBtn.classList.add('copied');
+      playSuccess();
       setTimeout(function () { copyBtn.classList.remove('copied'); }, 1500);
     };
     if (navigator.clipboard) {
@@ -487,20 +527,6 @@ function buildFeedItem(feed) {
 
   label.appendChild(info);
   item.appendChild(label);
-
-  if (feed.status !== 'active') {
-    let tag = document.createElement('span');
-    tag.className = 'tag tag-stale';
-    tag.textContent = t('tag-stale');
-    item.appendChild(tag);
-  }
-
-  if (feed.isProxy) {
-    let proxyTag = document.createElement('span');
-    proxyTag.className = 'tag tag-proxy';
-    proxyTag.textContent = t('tag-proxy');
-    item.appendChild(proxyTag);
-  }
 
   return item;
 }

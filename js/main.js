@@ -1,3 +1,4 @@
+import { bind, setEnabled, play } from 'cuelume';
 import { el, allFeeds, selectedFeeds, setDomReady, setCurrentLang, filters } from './state.js';
 import { setTheme, restoreTheme } from './theme.js';
 import { loadData } from './data.js';
@@ -29,6 +30,7 @@ function cacheDom() {
   el.empty = document.getElementById('empty');
   el.themeBtns = document.querySelectorAll('.theme-btn');
   el.langSelect = document.getElementById('lang-select');
+  el.soundToggle = document.getElementById('sound-toggle');
   setDomReady();
 }
 
@@ -133,6 +135,14 @@ function setupEventListeners() {
     setLanguage(e.target.value);
   });
 
+  el.soundToggle.addEventListener('click', function () {
+    let muted = el.soundToggle.classList.toggle('muted');
+    setEnabled(!muted);
+    localStorage.setItem('awesome-rss-muted', muted ? '1' : '');
+    el.soundToggle.title = muted ? 'Activar sonidos' : 'Desactivar sonidos';
+    if (!muted) play('success');
+  });
+
   el.deselectHidden.addEventListener('click', deselectHidden);
 }
 
@@ -170,6 +180,12 @@ function setLanguage(lang) {
 /* --- Init --- */
 document.addEventListener('DOMContentLoaded', function () {
   cacheDom();
+  bind();
+  if (localStorage.getItem('awesome-rss-muted')) {
+    el.soundToggle.classList.add('muted');
+    setEnabled(false);
+    el.soundToggle.title = 'Activar sonidos';
+  }
   syncToggles();
   restoreTheme();
   restoreLanguage();
