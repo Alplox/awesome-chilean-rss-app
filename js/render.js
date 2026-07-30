@@ -8,6 +8,7 @@ export function showLoading() {
   el.loading.textContent = t('loading');
   el.error.hidden = true;
   el.empty.hidden = true;
+  el.feedList.style.minHeight = '60vh';
   el.feedList.innerHTML = '';
 }
 
@@ -141,6 +142,7 @@ export function render() {
   let visibleFeeds = getVisibleFeeds();
 
   if (visibleFeeds.length === 0) {
+    el.feedList.style.minHeight = '';
     el.feedList.innerHTML = '';
     el.empty.hidden = false;
     updateCounter();
@@ -254,6 +256,7 @@ export function render() {
     }
   }
 
+  el.feedList.style.minHeight = '';
   el.feedList.innerHTML = '';
   el.feedList.appendChild(frag);
   updateCounter();
@@ -285,7 +288,8 @@ export function updateDownloadBtns() {
     '<path d="M7 1v8M3 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
     '<path d="M1.5 10v2a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
     '</svg> <span>' + t(downloadKey) + '</span>' +
-    (downloadableCount > 0 ? ' <span class="download-count">' + downloadableCount + '</span>' : '');
+    ' <span class="download-count">' + downloadableCount + '</span>';
+  el.downloadBtn.querySelector('.download-count').hidden = downloadableCount === 0;
 }
 
 function buildRegionGroup(regionKey, label, feeds, siteCategoryMap) {
