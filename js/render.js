@@ -81,24 +81,27 @@ function buildGroup(titleKey, titleLabel, feeds, siteCategoryMap, scopeType, sco
   }
   let counter = document.createElement('span');
   counter.className = 'category-counter';
+  counter.dataset.feedIds = feeds.map(f => f.id).join(',');
   counter.textContent = scopeSelected + '/' + total;
   header.appendChild(counter);
 
   let actions = document.createElement('div');
   actions.className = 'category-actions';
 
+  let scopeFn = scopeType === 'region' ? f => f.region : f => f.category;
+
   let selectBtn = document.createElement('button');
   selectBtn.className = 'category-action';
   selectBtn.setAttribute('data-cuelume-press', '');
   selectBtn.textContent = t('select-all');
-  selectBtn.addEventListener('click', () => selectAllInScope(scopeType, scopeKey));
+  selectBtn.addEventListener('click', () => selectAllInScope(scopeKey, scopeFn));
   actions.appendChild(selectBtn);
 
   let deselectBtn = document.createElement('button');
   deselectBtn.className = 'category-action';
   deselectBtn.setAttribute('data-cuelume-press', '');
   deselectBtn.textContent = t('deselect-all');
-  deselectBtn.addEventListener('click', () => deselectAllInScope(scopeType, scopeKey));
+  deselectBtn.addEventListener('click', () => deselectAllInScope(scopeKey, scopeFn));
   actions.appendChild(deselectBtn);
 
   header.appendChild(actions);
@@ -626,6 +629,16 @@ function updateCounter() {
   }
   el.counter.textContent = counterText;
   updateDownloadBtns();
+
+  let counters = el.feedList.querySelectorAll('.category-counter');
+  for (let i = 0; i < counters.length; i++) {
+    let ids = counters[i].dataset.feedIds.split(',').filter(Boolean);
+    let sel = 0;
+    for (let j = 0; j < ids.length; j++) {
+      if (selectedFeeds.has(ids[j])) sel++;
+    }
+    counters[i].textContent = sel + '/' + ids.length;
+  }
 
   if (hiddenCount > 0) {
     el.deselectHidden.classList.remove('is-hidden');
