@@ -43,6 +43,7 @@ export default {
   'tag-stale': 'inativo',
   'tag-proxy': 'proxy',
   'copy-link': 'Copiar link',
+  'report-link': 'Reportar link quebrado',
   'open-feed': 'Abrir feed',
   'theme-light': 'Claro',
   'theme-dark': 'Escuro',

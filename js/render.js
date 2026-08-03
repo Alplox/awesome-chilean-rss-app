@@ -530,6 +530,20 @@ function buildFeedItem(feed) {
     }
   });
   actions.appendChild(copyBtn);
+
+  let reportBtn = document.createElement('a');
+  reportBtn.className = 'report-link';
+  reportBtn.href = 'https://github.com/alplox/awesome-chilean-rss/issues/new?title=Broken+feed+link&body=' + encodeURIComponent('Feed URL: ' + feed.rssUrl);
+  reportBtn.target = '_blank';
+  reportBtn.rel = 'noopener';
+  reportBtn.title = t('report-link');
+  reportBtn.setAttribute('aria-label', t('report-link'));
+  reportBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 1L13 12H1L7 1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 6v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="10" r="0.5" fill="currentColor"/></svg>';
+  reportBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+  });
+  actions.appendChild(reportBtn);
+
   info.appendChild(actions);
 
   label.appendChild(info);

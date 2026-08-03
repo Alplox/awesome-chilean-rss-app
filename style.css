@@ -1074,7 +1074,8 @@ body {
 }
 
 .copy-link,
-.feed-link {
+.feed-link,
+.report-link {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
@@ -1094,19 +1095,22 @@ body {
 }
 
 .feed-item:hover .copy-link,
-.feed-item:hover .feed-link {
+.feed-item:hover .feed-link,
+.feed-item:hover .report-link {
   opacity: 1;
 }
 
 .copy-link:hover,
-.feed-link:hover {
+.feed-link:hover,
+.report-link:hover {
   color: var(--accent);
   background: var(--selection);
   opacity: 1;
 }
 
 .copy-link:active,
-.feed-link:active {
+.feed-link:active,
+.report-link:active {
   transform: scale(0.96);
 }
 
