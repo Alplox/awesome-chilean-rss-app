@@ -116,6 +116,7 @@ function setupEventListeners() {
       this.classList.add('active');
 
       updateDownloadBtns();
+      render();
     });
   }
 

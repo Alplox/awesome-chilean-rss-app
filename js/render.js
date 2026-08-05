@@ -3,6 +3,10 @@ import { t } from './i18n.js';
 import { getVisibleFeeds, getFeedsMatchingNarrowingFilters, isFeedDownloadable } from './filters.js';
 import { playSuccess } from './sound.js';
 
+function feedDisplayUrl(feed) {
+  return filters.format === 'html' ? feed.htmlUrl : feed.rssUrl;
+}
+
 export function showLoading() {
   el.loading.hidden = false;
   el.loading.textContent = t('loading');
@@ -465,7 +469,7 @@ function buildFeedItem(feed) {
 
   let meta = document.createElement('span');
   meta.className = 'feed-meta';
-  meta.textContent = feed.rssUrl;
+  meta.textContent = feedDisplayUrl(feed);
   text.appendChild(meta);
   info.appendChild(text);
 
@@ -488,7 +492,7 @@ function buildFeedItem(feed) {
 
   let feedLink = document.createElement('a');
   feedLink.className = 'feed-link';
-  feedLink.href = feed.rssUrl;
+  feedLink.href = feedDisplayUrl(feed);
   feedLink.target = '_blank';
   feedLink.rel = 'noopener';
   feedLink.title = t('open-feed');
@@ -513,13 +517,13 @@ function buildFeedItem(feed) {
       setTimeout(function () { copyBtn.classList.remove('copied'); }, 1500);
     };
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(feed.rssUrl).then(copy, fallback);
+      navigator.clipboard.writeText(feedDisplayUrl(feed)).then(copy, fallback);
     } else {
       fallback();
     }
     function fallback() {
       let ta = document.createElement('textarea');
-      ta.value = feed.rssUrl;
+      ta.value = feedDisplayUrl(feed);
       ta.style.position = 'fixed';
       ta.style.opacity = '0';
       document.body.appendChild(ta);

@@ -91,14 +91,14 @@ function generateHTMLBookmarks(feeds, grouped) {
       let groupFeeds = groupedFeeds[key];
       for (let f = 0; f < groupFeeds.length; f++) {
         let feed = groupFeeds[f];
-        items += '    <DT><A HREF="' + escHtml(feed.rssUrl) + '">' + escHtml(feed.feedName + ' - ' + feed.siteName) + '</A>\n';
+        items += '    <DT><A HREF="' + escHtml(feed.htmlUrl) + '">' + escHtml(feed.feedName + ' - ' + feed.siteName) + '</A>\n';
       }
       items += '  </DL><p>\n';
     }
   } else {
     for (let i = 0; i < feeds.length; i++) {
       let f = feeds[i];
-      items += '  <DT><A HREF="' + escHtml(f.rssUrl) + '">' + escHtml(f.feedName + ' - ' + f.siteName) + '</A>\n';
+      items += '  <DT><A HREF="' + escHtml(f.htmlUrl) + '">' + escHtml(f.feedName + ' - ' + f.siteName) + '</A>\n';
     }
   }
 
