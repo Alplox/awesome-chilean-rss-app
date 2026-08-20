@@ -1,6 +1,8 @@
 import { allFeeds, categories, regions, selectedFeeds, URLS } from './state.js';
 import { t } from './i18n.js';
 
+export const feedNameById = new Map();
+
 const CACHE_KEY = 'awesome-rss-data';
 const CACHE_TTL = 3600000;
 
@@ -55,7 +57,10 @@ export async function loadData() {
 
 function buildFeedList(feedsData) {
   allFeeds.length = 0;
+  feedNameById.clear();
   let sites = feedsData.sites;
+
+  let firstMainSet = new Set();
 
   for (let s = 0; s < sites.length; s++) {
     let site = sites[s];
@@ -64,6 +69,10 @@ function buildFeedList(feedsData) {
     for (let f = 0; f < siteFeeds.length; f++) {
       let feed = siteFeeds[f];
       let isProxy = feed.name.indexOf('[Proxy') !== -1;
+      let isMain = feed.status === 'active' && !firstMainSet.has(site.id);
+      if (isMain) firstMainSet.add(site.id);
+
+      feedNameById.set(feed.id, feed.name);
 
       allFeeds.push({
         id: feed.id,
@@ -76,8 +85,9 @@ function buildFeedList(feedsData) {
         category: feed.category || site.category,
         region: feed.region || site.region,
         status: feed.status,
-        isMain: f === 0,
-        isProxy: isProxy
+        isMain: isMain,
+        isProxy: isProxy,
+        duplicateOf: feed.duplicate_of || null
       });
 
       selectedFeeds.add(feed.id);

@@ -43,6 +43,7 @@ export default {
   'footer-data': 'Datos obtenidos de',
   'footer-source': 'Codigo fuente en',
   'tag-stale': 'inactivo',
+  'tag-duplicate': 'duplicado',
   'tag-proxy': 'proxy',
   'copy-link': 'Copiar enlace',
   'report-link': 'Reportar enlace roto',

@@ -1,4 +1,5 @@
 import { allFeeds, categories, regions, selectedFeeds, filters, el } from './state.js';
+import { feedNameById } from './data.js';
 import { t } from './i18n.js';
 import { getVisibleFeeds, getFeedsMatchingNarrowingFilters, isFeedDownloadable } from './filters.js';
 import { playSuccess } from './sound.js';
@@ -473,7 +474,16 @@ function buildFeedItem(feed) {
   text.appendChild(meta);
   info.appendChild(text);
 
-  if (feed.status !== 'active') {
+  if (feed.status === 'duplicate') {
+    let tag = document.createElement('span');
+    tag.className = 'tag tag-duplicate';
+    tag.textContent = t('tag-duplicate');
+    if (feed.duplicateOf) {
+      let originalName = feedNameById.get(feed.duplicateOf) || feed.duplicateOf;
+      tag.dataset.popover = originalName;
+    }
+    info.appendChild(tag);
+  } else if (feed.status !== 'active') {
     let tag = document.createElement('span');
     tag.className = 'tag tag-stale';
     tag.textContent = t('tag-stale');
@@ -690,3 +700,70 @@ function toggleSiteProxyVisibility(siteId) {
   }
   render();
 }
+
+/* --- Duplicate tag popover --- */
+let popoverEl = null;
+let hoverTimeout = null;
+
+function showPopover(tag) {
+  if (!popoverEl) {
+    popoverEl = document.createElement('div');
+    popoverEl.className = 'popover';
+    document.body.appendChild(popoverEl);
+  }
+  popoverEl.textContent = tag.dataset.popover;
+  popoverEl.hidden = false;
+  popoverEl._owner = tag;
+  let rect = tag.getBoundingClientRect();
+  let pw = popoverEl.offsetWidth;
+  let ph = popoverEl.offsetHeight;
+  let vw = window.innerWidth;
+  let vh = window.innerHeight;
+  let left = rect.left + rect.width / 2 - pw / 2;
+  if (left < 8) left = 8;
+  if (left + pw > vw - 8) left = vw - pw - 8;
+  let top = rect.bottom + 6;
+  if (top + ph > vh - 8) top = rect.top - ph - 6;
+  popoverEl.style.left = left + 'px';
+  popoverEl.style.top = top + 'px';
+}
+
+function hidePopover() {
+  if (popoverEl) popoverEl.hidden = true;
+}
+
+function isOpen(tag) {
+  return popoverEl && !popoverEl.hidden && popoverEl._owner === tag;
+}
+
+document.addEventListener('mouseover', function (e) {
+  let tag = e.target.closest('.tag-duplicate[data-popover]');
+  if (tag) {
+    clearTimeout(hoverTimeout);
+    showPopover(tag);
+  }
+});
+
+document.addEventListener('mouseout', function (e) {
+  let tag = e.target.closest('.tag-duplicate[data-popover]');
+  if (!tag) return;
+  let related = e.relatedTarget;
+  if (!related) { hoverTimeout = setTimeout(hidePopover, 150); return; }
+  if (related === popoverEl || (popoverEl && popoverEl.contains(related))) return;
+  if (related.closest && related.closest('.tag-duplicate[data-popover]')) return;
+  hoverTimeout = setTimeout(hidePopover, 150);
+});
+
+document.addEventListener('click', function (e) {
+  let tag = e.target.closest('.tag-duplicate[data-popover]');
+  if (tag) {
+    e.stopPropagation();
+    if (isOpen(tag)) {
+      hidePopover();
+    } else {
+      showPopover(tag);
+    }
+    return;
+  }
+  hidePopover();
+});

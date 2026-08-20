@@ -39,6 +39,8 @@
   --tag-stale-text: #956400;
   --tag-proxy-bg: #e1f3fe;
   --tag-proxy-text: #1f6c9f;
+  --tag-duplicate-bg: #f3eef8;
+  --tag-duplicate-text: #7c5295;
   --shadow-color: rgba(0, 0, 0, 0.04);
   --shadow-hover: rgba(0, 0, 0, 0.08);
   --scrollbar: #d0d0c8;
@@ -65,6 +67,8 @@
   --tag-stale-text: #c8a040;
   --tag-proxy-bg: #1e2830;
   --tag-proxy-text: #60a8d0;
+  --tag-duplicate-bg: #2a2030;
+  --tag-duplicate-text: #a87cc8;
   --shadow-color: rgba(0, 0, 0, 0.2);
   --toggle-thumb: #1a1a1a;
 
@@ -92,6 +96,8 @@
   --tag-stale-text: #8a7040;
   --tag-proxy-bg: #d0c8b8;
   --tag-proxy-text: #5c5a48;
+  --tag-duplicate-bg: #d8d0c8;
+  --tag-duplicate-text: #6a5878;
   --shadow-color: rgba(74, 55, 40, 0.06);
   --shadow-hover: rgba(74, 55, 40, 0.12);
   --scrollbar: #c0b498;
@@ -1178,6 +1184,36 @@ body {
 .tag-proxy {
   background: var(--tag-proxy-bg);
   color: var(--tag-proxy-text);
+}
+
+.tag-duplicate {
+  background: var(--tag-duplicate-bg);
+  color: var(--tag-duplicate-text);
+  cursor: pointer;
+}
+
+.popover {
+  position: fixed;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: normal;
+  word-wrap: break-word;
+  max-width: 260px;
+  min-width: 120px;
+  box-shadow: 0 4px 12px var(--shadow-hover);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.popover[hidden] {
+  display: none;
 }
 
 /* --- UI States --- */
