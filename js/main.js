@@ -119,8 +119,10 @@ function setupEventListeners() {
 
       for (let k = 0; k < el.formatOptions.length; k++) {
         el.formatOptions[k].classList.remove('active');
+        el.formatOptions[k].setAttribute('aria-pressed', 'false');
       }
       this.classList.add('active');
+      this.setAttribute('aria-pressed', 'true');
 
       updateDownloadBtns();
       render();
@@ -148,6 +150,8 @@ function setupEventListeners() {
     setEnabled(!muted);
     localStorage.setItem('awesome-rss-muted', muted ? '1' : '');
     el.soundToggle.title = muted ? 'Activar sonidos' : 'Desactivar sonidos';
+    el.soundToggle.setAttribute('aria-pressed', muted ? 'false' : 'true');
+    el.soundToggle.setAttribute('aria-label', muted ? 'Activar sonidos' : 'Desactivar sonidos');
     if (!muted) play('success');
   });
 
@@ -163,34 +167,44 @@ function setupEventListeners() {
 
     let ticking = false;
     let threshold = 200;
-    function updateBackToTop() {
+    let hideTimeout = 0;
+    window.updateBackToTop = function updateBackToTop() {
       let shouldShow = window.scrollY > threshold;
-      // Also check if page is scrollable at all
-      let isScrollable = document.documentElement.scrollHeight > window.innerHeight + 100;
-      if (shouldShow && isScrollable) {
-        el.backToTop.hidden = false;
+      if (shouldShow) {
+        if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = 0; }
+        if (el.backToTop.hidden) el.backToTop.hidden = false;
         // Force reflow before adding class for transition
         void el.backToTop.offsetWidth;
         el.backToTop.classList.add('is-visible');
+        el.backToTop.setAttribute('aria-hidden', 'false');
       } else {
         el.backToTop.classList.remove('is-visible');
-        // Hide after transition
-        setTimeout(function () {
+        el.backToTop.setAttribute('aria-hidden', 'true');
+        if (hideTimeout) clearTimeout(hideTimeout);
+        hideTimeout = setTimeout(function () {
           if (!el.backToTop.classList.contains('is-visible')) el.backToTop.hidden = true;
-        }, 220);
+          hideTimeout = 0;
+        }, 260);
       }
       ticking = false;
-    }
+    };
     window.addEventListener('scroll', function () {
       if (!ticking) {
         ticking = true;
-        requestAnimationFrame(updateBackToTop);
+        requestAnimationFrame(window.updateBackToTop);
       }
     }, { passive: true });
-    window.addEventListener('resize', updateBackToTop);
+    window.addEventListener('resize', window.updateBackToTop);
+    if ('ResizeObserver' in window && el.feedList) {
+      let ro = new ResizeObserver(function () { window.updateBackToTop(); });
+      ro.observe(el.feedList);
+      ro.observe(document.documentElement);
+    }
     // Initial check delayed to allow content to render
-    setTimeout(updateBackToTop, 500);
-    updateBackToTop();
+    setTimeout(window.updateBackToTop, 500);
+    window.updateBackToTop();
+    // Also run after custom render events
+    window.addEventListener('awesome-rss:rendered', window.updateBackToTop);
   }
 }
 
@@ -206,8 +220,10 @@ function syncToggles() {
   let mainOnly = filters.mainFeedOnly;
   el.toggleStale.disabled = mainOnly;
   el.toggleProxies.disabled = mainOnly;
+  el.toggleSiteTogether.disabled = mainOnly;
   el.toggleStale.parentElement.style.opacity = mainOnly ? '0.5' : '1';
   el.toggleProxies.parentElement.style.opacity = mainOnly ? '0.5' : '1';
+  el.toggleSiteTogether.parentElement.style.opacity = mainOnly ? '0.5' : '1';
 
   let grouped = filters.groupOpml || filters.groupByRegion;
   el.downloadAltBtn.hidden = !grouped;
@@ -233,6 +249,10 @@ document.addEventListener('DOMContentLoaded', function () {
     el.soundToggle.classList.add('muted');
     setEnabled(false);
     el.soundToggle.title = 'Activar sonidos';
+    el.soundToggle.setAttribute('aria-pressed', 'false');
+    el.soundToggle.setAttribute('aria-label', 'Activar sonidos');
+  } else {
+    el.soundToggle.setAttribute('aria-pressed', 'true');
   }
   syncToggles();
   restoreTheme();

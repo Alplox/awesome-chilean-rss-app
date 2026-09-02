@@ -56,5 +56,13 @@ export default {
   'cross-category-note': 'Tambem existem feeds de {site} em categoria(s): {cats}',
   'site-other-categories': 'Este site tem feeds em outras categorias',
   'uncategorized': 'Sem categoria',
-  'toggle-site-together': 'Manter sub-feeds juntos'
+  'toggle-site-together': 'Manter sub-feeds juntos',
+  'skip-link': 'Pular para o conteúdo',
+  'github-label': 'Ver repositório no GitHub',
+  'group-visibility': 'Visibilidade',
+  'group-grouping': 'Agrupamento',
+  'group-view': 'Exibição',
+  'group-export': 'Arquivo',
+  'download-alt-title': 'Baixar versão plana (sem categorias)',
+  'download-alt': 'Versão plana (sem categorias)'
 };

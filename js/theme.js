@@ -8,7 +8,14 @@ export function setTheme(theme) {
   localStorage.setItem(KEYS.THEME, theme);
   let btns = document.querySelectorAll('.theme-btn');
   for (let i = 0; i < btns.length; i++) {
-    btns[i].classList.toggle('active', btns[i].dataset.theme === theme);
+    let isActive = btns[i].dataset.theme === theme;
+    btns[i].classList.toggle('active', isActive);
+    btns[i].setAttribute('aria-checked', isActive ? 'true' : 'false');
+  }
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    let bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+    if (bg) meta.setAttribute('content', bg);
   }
   root.classList.remove('no-animate');
 }

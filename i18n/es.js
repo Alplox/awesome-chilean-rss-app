@@ -58,5 +58,11 @@ export default {
   'cross-category-note': 'Tambien existen feeds de {site} en categoria(s): {cats}',
   'site-other-categories': 'Este sitio tiene feeds en otras categorias',
   'uncategorized': 'Sin categoria',
-  'toggle-site-together': 'Mantener sub-feeds unidos'
+  'toggle-site-together': 'Mantener sub-feeds unidos',
+  'skip-link': 'Saltar al contenido',
+  'github-label': 'Ver repositorio en GitHub',
+  'group-visibility': 'Visibilidad',
+  'group-grouping': 'Agrupación',
+  'group-view': 'Vista',
+  'group-export': 'Archivo'
 };

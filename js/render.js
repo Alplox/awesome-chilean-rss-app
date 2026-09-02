@@ -88,11 +88,18 @@ function buildGroup(titleKey, titleLabel, feeds, siteCategoryMap, scopeType, sco
   let header = document.createElement('div');
   header.className = 'category-header';
 
-  let title = document.createElement('h2');
+  let heading = document.createElement('h2');
+  heading.style.cssText = 'margin:0;font:inherit;display:flex;align-items:center;flex:1';
+  let title = document.createElement('button');
+  title.type = 'button';
   title.className = 'category-title';
   title.textContent = t(titleKey, { label: titleLabel });
   title.dataset.action = 'toggle-collapse';
-  header.appendChild(title);
+  title.setAttribute('aria-expanded', 'true');
+  let listId = 'category-feeds-' + scopeType + '-' + scopeKey.replace(/\s+/g, '-');
+  title.setAttribute('aria-controls', listId);
+  heading.appendChild(title);
+  header.appendChild(heading);
 
   let total = feeds.length;
   let scopeSelected = 0;
@@ -131,6 +138,7 @@ function buildGroup(titleKey, titleLabel, feeds, siteCategoryMap, scopeType, sco
 
   let list = document.createElement('div');
   list.className = 'category-feeds';
+  list.id = 'category-feeds-' + scopeType + '-' + scopeKey.replace(/\s+/g, '-');
 
   let feedsBySiteLocal = {};
   for (let i = 0; i < feeds.length; i++) {
@@ -174,7 +182,10 @@ function ensureDelegation() {
     let title = e.target.closest('.category-title[data-action="toggle-collapse"]');
     if (title) {
       let group = title.closest('.category-group');
-      if (group) group.classList.toggle('collapsed');
+      if (group) {
+        let collapsed = group.classList.toggle('collapsed');
+        title.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      }
       return;
     }
 
@@ -477,6 +488,7 @@ function renderNextChunk() {
   if (_renderedGroups >= _groupNodes.length) {
     cleanupObserver();
   }
+  if (window.updateBackToTop) window.updateBackToTop();
 }
 
 function setupPaginationObserver() {
@@ -521,6 +533,8 @@ function doRender() {
     el.feedList.innerHTML = '';
     el.empty.hidden = false;
     updateCounter();
+    try { window.dispatchEvent(new CustomEvent('awesome-rss:rendered')); } catch (e) {}
+    if (window.updateBackToTop) window.updateBackToTop();
     return;
   }
   el.empty.hidden = true;
@@ -553,6 +567,9 @@ function doRender() {
   }
 
   updateCounter();
+  // Notify back-to-top to re-evaluate visibility after DOM height changed
+  try { window.dispatchEvent(new CustomEvent('awesome-rss:rendered')); } catch (e) {}
+  if (window.updateBackToTop) window.updateBackToTop();
 }
 
 export function updateDownloadBtns() {
@@ -590,7 +607,7 @@ function buildSiteGroup(siteId, siteName, feeds, otherCats) {
   let header = document.createElement('div');
   header.className = 'site-header';
 
-  let title = document.createElement('span');
+  let title = document.createElement('h3');
   title.className = 'site-header-title';
   title.textContent = siteName;
   header.appendChild(title);
@@ -634,7 +651,7 @@ function buildSiteGroup(siteId, siteName, feeds, otherCats) {
     wrapper.appendChild(item);
   }
 
-  if (otherCats.length > 0 && !filters.keepSiteTogether) {
+  if (otherCats.length > 0 && !filters.keepSiteTogether && !filters.mainFeedOnly) {
     let note = document.createElement('div');
     note.className = 'cross-category-note';
     let catLabels = otherCats.map(slug => categories[slug] ? categories[slug].label.replace(/\p{Emoji}/gu, '').replace(/\p{Variation_Selector}/gu, '').trim() : slug);
@@ -646,20 +663,24 @@ function buildSiteGroup(siteId, siteName, feeds, otherCats) {
 }
 
 function buildFeedItem(feed) {
-  let item = document.createElement('label');
+  let item = document.createElement('div');
   item.className = 'feed-item' + (feed.isMain ? '' : ' feed-item--sub');
   item.dataset.feedId = feed.id;
 
+  let checkboxId = 'feed-cb-' + feed.id;
   let checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
+  checkbox.id = checkboxId;
   checkbox.className = 'feed-checkbox';
   checkbox.dataset.feedId = feed.id;
   checkbox.dataset.cuelumeToggle = '';
   checkbox.checked = selectedFeeds.has(feed.id);
+  checkbox.setAttribute('aria-label', feed.feedName + ' — ' + feedDisplayUrl(feed));
   item.appendChild(checkbox);
 
-  let label = document.createElement('div');
+  let label = document.createElement('label');
   label.className = 'feed-label';
+  label.setAttribute('for', checkboxId);
 
   let info = document.createElement('div');
   info.className = 'feed-info';
@@ -679,12 +700,16 @@ function buildFeedItem(feed) {
   info.appendChild(text);
 
   if (feed.status === 'duplicate') {
-    let tag = document.createElement('span');
+    let tag = document.createElement('button');
+    tag.type = 'button';
     tag.className = 'tag tag-duplicate';
     tag.textContent = t('tag-duplicate');
+    tag.setAttribute('aria-label', t('tag-duplicate') + (feed.duplicateOf ? ': ' + (feedNameById.get(feed.duplicateOf) || feed.duplicateOf) : ''));
     if (feed.duplicateOf) {
       let originalName = feedNameById.get(feed.duplicateOf) || feed.duplicateOf;
       tag.dataset.popover = originalName;
+      tag.setAttribute('aria-describedby', 'popover');
+      tag.setAttribute('aria-expanded', 'false');
     }
     info.appendChild(tag);
   } else if (feed.status !== 'active') {
@@ -701,6 +726,9 @@ function buildFeedItem(feed) {
     info.appendChild(proxyTag);
   }
 
+  label.appendChild(info);
+  item.appendChild(label);
+
   let actions = document.createElement('div');
   actions.className = 'feed-actions';
 
@@ -710,14 +738,14 @@ function buildFeedItem(feed) {
   feedLink.target = '_blank';
   feedLink.rel = 'noopener';
   feedLink.title = t('open-feed');
-  feedLink.setAttribute('aria-label', 'Abrir URL del feed');
+  feedLink.setAttribute('aria-label', t('open-feed') + ': ' + feed.feedName);
   feedLink.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M8 2h4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 8.5 12 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M10.5 8.5v3a.5.5 0 0 1-.5.5H2.5a.5.5 0 0 1-.5-.5V3.5a.5.5 0 0 1 .5-.5h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
   actions.appendChild(feedLink);
 
   let copyBtn = document.createElement('button');
   copyBtn.className = 'copy-link';
   copyBtn.dataset.feedId = feed.id;
-  copyBtn.setAttribute('aria-label', t('copy-link'));
+  copyBtn.setAttribute('aria-label', t('copy-link') + ': ' + feed.feedName);
   copyBtn.title = t('copy-link');
   copyBtn.setAttribute('data-cuelume-press', '');
   copyBtn.innerHTML = '<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="check-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7.5l3.5 3L12 4"/></svg>';
@@ -729,13 +757,11 @@ function buildFeedItem(feed) {
   reportBtn.target = '_blank';
   reportBtn.rel = 'noopener';
   reportBtn.title = t('report-link');
-  reportBtn.setAttribute('aria-label', t('report-link'));
+  reportBtn.setAttribute('aria-label', t('report-link') + ': ' + feed.feedName);
   reportBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 1L13 12H1L7 1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 6v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="10" r="0.5" fill="currentColor"/></svg>';
   actions.appendChild(reportBtn);
 
-  info.appendChild(actions);
-  label.appendChild(info);
-  item.appendChild(label);
+  item.appendChild(actions);
 
   return item;
 }
@@ -953,11 +979,14 @@ function showPopover(tag) {
   if (!popoverEl) {
     popoverEl = document.createElement('div');
     popoverEl.className = 'popover';
+    popoverEl.id = 'popover';
+    popoverEl.setAttribute('role', 'tooltip');
     document.body.appendChild(popoverEl);
   }
   popoverEl.textContent = tag.dataset.popover;
   popoverEl.hidden = false;
   popoverEl._owner = tag;
+  if (tag.tagName === 'BUTTON') tag.setAttribute('aria-expanded', 'true');
   let rect = tag.getBoundingClientRect();
   let pw = popoverEl.offsetWidth;
   let ph = popoverEl.offsetHeight;
@@ -973,7 +1002,10 @@ function showPopover(tag) {
 }
 
 function hidePopover() {
-  if (popoverEl) popoverEl.hidden = true;
+  if (popoverEl) {
+    popoverEl.hidden = true;
+    if (popoverEl._owner && popoverEl._owner.tagName === 'BUTTON') popoverEl._owner.setAttribute('aria-expanded', 'false');
+  }
 }
 
 function isOpen(tag) {
@@ -1010,4 +1042,32 @@ document.addEventListener('click', function (e) {
     return;
   }
   hidePopover();
+});
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && popoverEl && !popoverEl.hidden) {
+    let owner = popoverEl._owner;
+    hidePopover();
+    if (owner) owner.focus();
+  }
+});
+
+document.addEventListener('focusin', function (e) {
+  let tag = e.target.closest('.tag-duplicate[data-popover]');
+  if (tag) {
+    clearTimeout(hoverTimeout);
+    showPopover(tag);
+  }
+});
+
+document.addEventListener('focusout', function (e) {
+  let tag = e.target.closest('.tag-duplicate[data-popover]');
+  if (!tag) return;
+  // delay to allow focus to move to another duplicate tag
+  hoverTimeout = setTimeout(function () {
+    let active = document.activeElement;
+    if (active && active.closest && active.closest('.tag-duplicate[data-popover]')) return;
+    if (popoverEl && popoverEl.contains(active)) return;
+    hidePopover();
+  }, 100);
 });
