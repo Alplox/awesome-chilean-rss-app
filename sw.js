@@ -1,4 +1,4 @@
-const CACHE = 'awesome-rss-v1';
+const CACHE = 'awesome-rss-v4';
 const BASE = self.location.pathname.replace(/sw\.js$/, '');
 
 self.addEventListener('install', e => {
@@ -22,6 +22,19 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   let u = new URL(e.request.url);
+  // Cache remote data JSON with stale-while-revalidate
+  if (u.hostname === 'raw.githubusercontent.com' && u.pathname.includes('awesome-chilean-rss')) {
+    e.respondWith(
+      caches.open(CACHE).then(c => c.match(e.request).then(cached => {
+        let fetched = fetch(e.request).then(res => {
+          if (res.ok) c.put(e.request, res.clone());
+          return res;
+        }).catch(() => cached);
+        return cached || fetched;
+      }))
+    );
+    return;
+  }
   if (u.origin === 'https://esm.sh') {
     e.respondWith(
       caches.open(CACHE).then(c => c.match(e.request).then(r => r || fetch(e.request).then(res => { c.put(e.request, res.clone()); return res; })))

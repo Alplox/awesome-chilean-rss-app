@@ -2,6 +2,9 @@ import { allFeeds, categories, regions, selectedFeeds, URLS } from './state.js';
 import { t } from './i18n.js';
 
 export const feedNameById = new Map();
+export const feedsByCategory = new Map();
+export const feedsByRegion = new Map();
+export const feedsBySite = new Map();
 
 const CACHE_KEY = 'awesome-rss-data';
 const CACHE_TTL = 3600000;
@@ -23,6 +26,14 @@ function saveToCache(data) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
   } catch { /* quota exceeded, ignore */ }
+  // Also warm Cache API async (non-blocking) for SW
+  if ('caches' in window) {
+    caches.open('awesome-rss-v1').then(c => {
+      let blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      let res = new Response(blob, { headers: { 'Content-Type': 'application/json', 'X-Cached-At': String(Date.now()) } });
+      c.put('/__awesome-rss-data-cache', res).catch(() => {});
+    }).catch(() => {});
+  }
 }
 
 export async function loadData() {
@@ -58,6 +69,9 @@ export async function loadData() {
 function buildFeedList(feedsData) {
   allFeeds.length = 0;
   feedNameById.clear();
+  feedsByCategory.clear();
+  feedsByRegion.clear();
+  feedsBySite.clear();
   let sites = feedsData.sites;
 
   let firstMainSet = new Set();
@@ -74,21 +88,44 @@ function buildFeedList(feedsData) {
 
       feedNameById.set(feed.id, feed.name);
 
-      allFeeds.push({
+      let category = feed.category || site.category;
+      let region = feed.region || site.region;
+      let description = feed.description || site.description || '';
+      let feedName = feed.name;
+      let siteName = site.name;
+      // Precomputed lowercased search index to avoid toLowerCase on every filter pass
+      let searchIndex = (feedName + ' ' + siteName + ' ' + description).toLowerCase();
+
+      let entry = {
         id: feed.id,
         siteId: site.id,
-        siteName: site.name,
-        feedName: feed.name,
+        siteName: siteName,
+        feedName: feedName,
         rssUrl: feed.rss_url,
         htmlUrl: feed.url || site.url,
-        description: feed.description || site.description || '',
-        category: feed.category || site.category,
-        region: feed.region || site.region,
+        description: description,
+        category: category,
+        region: region,
         status: feed.status,
         isMain: isMain,
         isProxy: isProxy,
-        duplicateOf: feed.duplicate_of || null
-      });
+        duplicateOf: feed.duplicate_of || null,
+        _search: searchIndex
+      };
+
+      allFeeds.push(entry);
+
+      // Indexes for faster category/region filtering
+      if (category) {
+        if (!feedsByCategory.has(category)) feedsByCategory.set(category, []);
+        feedsByCategory.get(category).push(entry);
+      }
+      if (region) {
+        if (!feedsByRegion.has(region)) feedsByRegion.set(region, []);
+        feedsByRegion.get(region).push(entry);
+      }
+      if (!feedsBySite.has(site.id)) feedsBySite.set(site.id, []);
+      feedsBySite.get(site.id).push(entry);
 
       selectedFeeds.add(feed.id);
     }

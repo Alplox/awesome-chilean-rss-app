@@ -1,31 +1,82 @@
 import { allFeeds, filters, selectedFeeds } from './state.js';
+import { feedsByCategory, feedsByRegion } from './data.js';
+
+let _cachedVisible = null;
+let _cachedVisibleKey = '';
+let _cachedNarrowing = null;
+let _cachedNarrowingKey = '';
+
+function buildCacheKey(includeCategoryRegionSearch) {
+  let hiddenKey = '';
+  if (filters.hiddenProxySites.size > 0) {
+    // Sorted join to avoid key collision when same size but different sites
+    hiddenKey = Array.from(filters.hiddenProxySites).sort().join(',');
+  }
+  let base = (filters.showStale ? '1' : '0') + '|' + (filters.showProxies ? '1' : '0') + '|' + (filters.mainFeedOnly ? '1' : '0') + '|' + hiddenKey + '|' + allFeeds.length;
+  if (includeCategoryRegionSearch) {
+    return base + '|' + filters.category + '|' + filters.region + '|' + filters.search;
+  }
+  return base;
+}
 
 function filterFeeds(includeCategoryRegionSearch) {
-  let results = [];
+  let key = buildCacheKey(includeCategoryRegionSearch);
+  if (includeCategoryRegionSearch && _cachedVisible && _cachedVisibleKey === key) return _cachedVisible;
+  if (!includeCategoryRegionSearch && _cachedNarrowing && _cachedNarrowingKey === key) return _cachedNarrowing;
 
-  for (let i = 0; i < allFeeds.length; i++) {
-    let feed = allFeeds[i];
+  let results = [];
+  let q = includeCategoryRegionSearch && filters.search ? filters.search.toLowerCase() : '';
+  let hasSearch = !!q;
+  let catFilter = includeCategoryRegionSearch ? filters.category : 'all';
+  let regionFilter = includeCategoryRegionSearch ? filters.region : 'all';
+
+  // Narrow candidate set using indexes when possible
+  let candidates = allFeeds;
+  if (includeCategoryRegionSearch) {
+    if (catFilter !== 'all' && regionFilter !== 'all') {
+      // Intersect: start from smaller bucket
+      let catBucket = feedsByCategory.get(catFilter) || [];
+      let regBucket = feedsByRegion.get(regionFilter) || [];
+      if (catBucket.length < regBucket.length) {
+        candidates = catBucket;
+      } else {
+        candidates = regBucket;
+      }
+    } else if (catFilter !== 'all') {
+      candidates = feedsByCategory.get(catFilter) || [];
+    } else if (regionFilter !== 'all') {
+      candidates = feedsByRegion.get(regionFilter) || [];
+    }
+  }
+
+  for (let i = 0; i < candidates.length; i++) {
+    let feed = candidates[i];
 
     if (!filters.showStale && feed.status !== 'active') continue;
     if (feed.isProxy && (!filters.showProxies || filters.hiddenProxySites.has(feed.siteId))) continue;
     if (filters.mainFeedOnly && !feed.isMain) continue;
 
     if (includeCategoryRegionSearch) {
-      if (filters.category !== 'all' && feed.category !== filters.category) continue;
-      if (filters.region !== 'all' && feed.region !== filters.region) continue;
+      // When we narrowed via index we still need to check the other dimension if both filters active and we picked one bucket
+      if (catFilter !== 'all' && feed.category !== catFilter) continue;
+      if (regionFilter !== 'all' && feed.region !== regionFilter) continue;
 
-      if (filters.search) {
-        let q = filters.search.toLowerCase();
-        let nameMatch = feed.feedName.toLowerCase().indexOf(q) !== -1;
-        let siteMatch = feed.siteName.toLowerCase().indexOf(q) !== -1;
-        let descMatch = feed.description.toLowerCase().indexOf(q) !== -1;
-        if (!nameMatch && !siteMatch && !descMatch) continue;
+      if (hasSearch) {
+        // Use precomputed _search index
+        if (feed._search.indexOf(q) === -1) continue;
       }
     }
 
     results.push(feed);
   }
 
+  if (includeCategoryRegionSearch) {
+    _cachedVisible = results;
+    _cachedVisibleKey = key;
+  } else {
+    _cachedNarrowing = results;
+    _cachedNarrowingKey = key;
+  }
   return results;
 }
 
@@ -35,6 +86,13 @@ export function getVisibleFeeds() {
 
 export function getFeedsMatchingNarrowingFilters() {
   return filterFeeds(false);
+}
+
+export function invalidateFilterCache() {
+  _cachedVisible = null;
+  _cachedNarrowing = null;
+  _cachedVisibleKey = '';
+  _cachedNarrowingKey = '';
 }
 
 export function isFeedDownloadable(feed) {

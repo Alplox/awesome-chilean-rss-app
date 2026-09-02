@@ -31,6 +31,7 @@ function cacheDom() {
   el.themeBtns = document.querySelectorAll('.theme-btn');
   el.langSelect = document.getElementById('lang-select');
   el.soundToggle = document.getElementById('sound-toggle');
+  el.backToTop = document.getElementById('back-to-top');
   setDomReady();
 }
 
@@ -46,9 +47,15 @@ function setupEventListeners() {
     render();
   });
 
+  let searchDebounce = null;
+  let searchRaf = 0;
   el.searchInput.addEventListener('input', function (e) {
     filters.search = e.target.value;
-    render();
+    clearTimeout(searchDebounce);
+    if (searchRaf) cancelAnimationFrame(searchRaf);
+    searchDebounce = setTimeout(function () {
+      searchRaf = requestAnimationFrame(function () { render(); });
+    }, 180);
   });
 
   el.toggleMain.addEventListener('change', function (e) {
@@ -145,6 +152,46 @@ function setupEventListeners() {
   });
 
   el.deselectHidden.addEventListener('click', deselectHidden);
+
+  // Back to top
+  if (el.backToTop) {
+    el.backToTop.addEventListener('click', function () {
+      let prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: prefersReduced ? 'auto' : 'smooth' });
+      el.backToTop.blur();
+    });
+
+    let ticking = false;
+    let threshold = 200;
+    function updateBackToTop() {
+      let shouldShow = window.scrollY > threshold;
+      // Also check if page is scrollable at all
+      let isScrollable = document.documentElement.scrollHeight > window.innerHeight + 100;
+      if (shouldShow && isScrollable) {
+        el.backToTop.hidden = false;
+        // Force reflow before adding class for transition
+        void el.backToTop.offsetWidth;
+        el.backToTop.classList.add('is-visible');
+      } else {
+        el.backToTop.classList.remove('is-visible');
+        // Hide after transition
+        setTimeout(function () {
+          if (!el.backToTop.classList.contains('is-visible')) el.backToTop.hidden = true;
+        }, 220);
+      }
+      ticking = false;
+    }
+    window.addEventListener('scroll', function () {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(updateBackToTop);
+      }
+    }, { passive: true });
+    window.addEventListener('resize', updateBackToTop);
+    // Initial check delayed to allow content to render
+    setTimeout(updateBackToTop, 500);
+    updateBackToTop();
+  }
 }
 
 /* --- Sync toggles → filters --- */
