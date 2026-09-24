@@ -1,10 +1,12 @@
-import { bind, setEnabled, play } from 'cuelume';
-import { el, allFeeds, selectedFeeds, setDomReady, setCurrentLang, filters } from './state.js';
+import { setEnabled, play, warmSound } from './sound.js';
+import { el, allFeeds, selectedFeeds, setDomReady, setCurrentLang, currentLang, filters } from './state.js';
 import { setTheme, restoreTheme } from './theme.js';
 import { loadData } from './data.js';
 import { t, applyTranslations, restoreLanguage } from './i18n.js';
 import { render, showLoading, showError, hideLoading, populateFilters, updateDownloadBtns, selectAllInCategory, deselectAllInCategory, deselectHidden, selectAllGlobal, deselectAllGlobal } from './render.js';
 import { downloadFeeds } from './download.js';
+import { getStoredItem, setStoredItem } from './storage.js';
+import { setupCompactToolbar, updateCompactToolbar } from './compact-toolbar.js';
 
 /* --- DOM Cache --- */
 function cacheDom() {
@@ -25,9 +27,12 @@ function cacheDom() {
   el.selectAllBtn = document.getElementById('select-all-btn');
   el.deselectAllBtn = document.getElementById('deselect-all-btn');
   el.feedList = document.getElementById('feed-list');
+  el.main = document.getElementById('main-content');
   el.loading = document.getElementById('loading');
   el.error = document.getElementById('error');
   el.empty = document.getElementById('empty');
+  el.copyStatus = document.getElementById('copy-status');
+  el.retryBtn = document.getElementById('retry-btn');
   el.themeBtns = document.querySelectorAll('.theme-btn');
   el.langSelect = document.getElementById('lang-select');
   el.soundToggle = document.getElementById('sound-toggle');
@@ -39,11 +44,13 @@ function cacheDom() {
 function setupEventListeners() {
   el.categoryFilter.addEventListener('change', function (e) {
     filters.category = e.target.value;
+    updateCompactToolbar();
     render();
   });
 
   el.regionFilter.addEventListener('change', function (e) {
     filters.region = e.target.value;
+    updateCompactToolbar();
     render();
   });
 
@@ -51,6 +58,7 @@ function setupEventListeners() {
   let searchRaf = 0;
   el.searchInput.addEventListener('input', function (e) {
     filters.search = e.target.value;
+    updateCompactToolbar();
     clearTimeout(searchDebounce);
     if (searchRaf) cancelAnimationFrame(searchRaf);
     searchDebounce = setTimeout(function () {
@@ -125,7 +133,7 @@ function setupEventListeners() {
       this.setAttribute('aria-pressed', 'true');
 
       updateDownloadBtns();
-      render();
+      updateCompactToolbar();
     });
   }
 
@@ -139,6 +147,19 @@ function setupEventListeners() {
     el.themeBtns[k].addEventListener('click', function () {
       setTheme(this.dataset.theme);
     });
+    el.themeBtns[k].addEventListener('keydown', function (event) {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      let currentIndex = Array.from(el.themeBtns).indexOf(this);
+      let nextIndex = currentIndex;
+      if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % el.themeBtns.length;
+      if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + el.themeBtns.length) % el.themeBtns.length;
+      if (event.key === 'Home') nextIndex = 0;
+      if (event.key === 'End') nextIndex = el.themeBtns.length - 1;
+      let nextButton = el.themeBtns[nextIndex];
+      nextButton.focus();
+      setTheme(nextButton.dataset.theme);
+    });
   }
 
   el.langSelect.addEventListener('change', function (e) {
@@ -147,15 +168,16 @@ function setupEventListeners() {
 
   el.soundToggle.addEventListener('click', function () {
     let muted = el.soundToggle.classList.toggle('muted');
-    setEnabled(!muted);
-    localStorage.setItem('awesome-rss-muted', muted ? '1' : '');
-    el.soundToggle.title = muted ? 'Activar sonidos' : 'Desactivar sonidos';
+    setEnabled(!muted).catch(() => {});
+    setStoredItem('awesome-rss-muted', muted ? '1' : '');
+    el.soundToggle.title = t(muted ? 'sound-enable' : 'sound-disable');
     el.soundToggle.setAttribute('aria-pressed', muted ? 'false' : 'true');
-    el.soundToggle.setAttribute('aria-label', muted ? 'Activar sonidos' : 'Desactivar sonidos');
-    if (!muted) play('success');
+    el.soundToggle.setAttribute('aria-label', t('sound-label'));
+    if (!muted) play('success').catch(() => {});
   });
 
   el.deselectHidden.addEventListener('click', deselectHidden);
+  el.retryBtn.addEventListener('click', loadDataAndRender);
 
   // Back to top
   if (el.backToTop) {
@@ -173,8 +195,6 @@ function setupEventListeners() {
       if (shouldShow) {
         if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = 0; }
         if (el.backToTop.hidden) el.backToTop.hidden = false;
-        // Force reflow before adding class for transition
-        void el.backToTop.offsetWidth;
         el.backToTop.classList.add('is-visible');
         el.backToTop.setAttribute('aria-hidden', 'false');
       } else {
@@ -195,11 +215,6 @@ function setupEventListeners() {
       }
     }, { passive: true });
     window.addEventListener('resize', window.updateBackToTop);
-    if ('ResizeObserver' in window && el.feedList) {
-      let ro = new ResizeObserver(function () { window.updateBackToTop(); });
-      ro.observe(el.feedList);
-      ro.observe(document.documentElement);
-    }
     // Initial check delayed to allow content to render
     setTimeout(window.updateBackToTop, 500);
     window.updateBackToTop();
@@ -227,51 +242,64 @@ function syncToggles() {
 
   let grouped = filters.groupOpml || filters.groupByRegion;
   el.downloadAltBtn.hidden = !grouped;
+  updateCompactToolbar();
 }
 
 /* --- Language switching --- */
 function setLanguage(lang) {
   if (!lang) return;
   setCurrentLang(lang);
-  localStorage.setItem('awesome-rss-lang', lang);
+  setStoredItem('awesome-rss-lang', lang);
   el.langSelect.value = lang;
   applyTranslations();
+  el.soundToggle.title = t(el.soundToggle.classList.contains('muted') ? 'sound-enable' : 'sound-disable');
   populateFilters();
   render();
   updateDownloadBtns();
+  updateCompactToolbar();
 }
 
 /* --- Init --- */
 document.addEventListener('DOMContentLoaded', function () {
   cacheDom();
-  bind();
-  if (localStorage.getItem('awesome-rss-muted')) {
+  warmSound();
+  if (getStoredItem('awesome-rss-muted')) {
     el.soundToggle.classList.add('muted');
-    setEnabled(false);
-    el.soundToggle.title = 'Activar sonidos';
+    setEnabled(false).catch(() => {});
+    el.soundToggle.title = t('sound-enable');
     el.soundToggle.setAttribute('aria-pressed', 'false');
-    el.soundToggle.setAttribute('aria-label', 'Activar sonidos');
+    el.soundToggle.setAttribute('aria-label', t('sound-label'));
   } else {
+    el.soundToggle.title = t('sound-disable');
     el.soundToggle.setAttribute('aria-pressed', 'true');
+    el.soundToggle.setAttribute('aria-label', t('sound-label'));
   }
   syncToggles();
   restoreTheme();
   restoreLanguage();
+  el.langSelect.value = currentLang;
   applyTranslations();
+  if (el.soundToggle.classList.contains('muted')) el.soundToggle.title = t('sound-enable');
 
+  setupCompactToolbar();
   setupEventListeners();
   loadDataAndRender();
 });
 
 async function loadDataAndRender() {
   showLoading();
+  el.retryBtn.disabled = true;
   try {
     await loadData();
     populateFilters();
-    hideLoading();
     render();
-    updateDownloadBtns();
+    requestAnimationFrame(() => {
+      hideLoading();
+      updateDownloadBtns();
+    });
   } catch (err) {
     showError(err.message);
+  } finally {
+    el.retryBtn.disabled = false;
   }
 }

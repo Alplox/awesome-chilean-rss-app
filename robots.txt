@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://alplox.github.io/awesome-chilean-rss-app/sitemap.xml

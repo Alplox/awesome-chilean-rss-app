@@ -1,0 +1,13 @@
+# Awesome Chilean RSS App
+
+> A searchable directory for downloading RSS feeds from Chilean news, regional, technology, sports, culture, and public-data sources.
+
+## Use the directory
+
+- [Open Awesome Chilean RSS App](https://alplox.github.io/awesome-chilean-rss-app/): browse feeds by category or region, search sites, and export the selected feeds as OPML or HTML bookmarks.
+- [Source repository](https://github.com/alplox/awesome-chilean-rss-app): inspect the application source and deployment configuration.
+- [Feed directory data](https://github.com/alplox/awesome-chilean-rss): browse the source dataset and contribution guidelines.
+
+## What the site provides
+
+The application reads the public feed directory, lets visitors filter the catalogue, select individual feeds, and generate a portable bookmark file. Feed status, proxy, and duplicate metadata are shown when available.

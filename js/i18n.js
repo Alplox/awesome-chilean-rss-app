@@ -2,6 +2,7 @@ import es from '../i18n/es.js';
 import en from '../i18n/en.js';
 import pt from '../i18n/pt.js';
 import { currentLang, setCurrentLang } from './state.js';
+import { getStoredItem } from './storage.js';
 
 let data = { es: Object.freeze(es), en: Object.freeze(en), pt: Object.freeze(pt) };
 
@@ -31,7 +32,7 @@ export function applyTranslations() {
 }
 
 export function restoreLanguage() {
-  let saved = localStorage.getItem('awesome-rss-lang');
+  let saved = getStoredItem('awesome-rss-lang');
   if (saved && data[saved]) {
     setCurrentLang(saved);
   } else {

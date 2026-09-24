@@ -6,38 +6,73 @@ export const feedsByCategory = new Map();
 export const feedsByRegion = new Map();
 export const feedsBySite = new Map();
 
-const CACHE_KEY = 'awesome-rss-data';
+const DATA_CACHE = 'awesome-rss-data-v1';
+const CACHE_META_KEY = new URL('./__awesome-rss-data-cache-meta', document.baseURI).href;
 const CACHE_TTL = 3600000;
+const FETCH_TIMEOUT = 15000;
 
-function loadFromCache() {
-  try {
-    let raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    let cached = JSON.parse(raw);
-    if (Date.now() - cached.ts > CACHE_TTL) {
-      localStorage.removeItem(CACHE_KEY);
-      return null;
-    }
-    return cached.data;
-  } catch { return null; }
+function isValidDataset(data) {
+  return data && Array.isArray(data.sites);
 }
 
-function saveToCache(data) {
+async function loadFromCache() {
+  if (!('caches' in window)) return null;
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
-  } catch { /* quota exceeded, ignore */ }
-  // Also warm Cache API async (non-blocking) for SW
-  if ('caches' in window) {
-    caches.open('awesome-rss-v1').then(c => {
-      let blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-      let res = new Response(blob, { headers: { 'Content-Type': 'application/json', 'X-Cached-At': String(Date.now()) } });
-      c.put('/__awesome-rss-data-cache', res).catch(() => {});
-    }).catch(() => {});
+    const cache = await caches.open(DATA_CACHE);
+    const [feedsResponse, categoriesResponse, regionsResponse, metaResponse] = await Promise.all([
+      cache.match(URLS.FEEDS),
+      cache.match(URLS.CATEGORIES),
+      cache.match(URLS.REGIONS),
+      cache.match(CACHE_META_KEY)
+    ]);
+    if (!feedsResponse || !categoriesResponse || !regionsResponse || !metaResponse) return null;
+    const savedAt = Number(await metaResponse.text());
+    if (!Number.isFinite(savedAt) || Date.now() - savedAt > CACHE_TTL) return null;
+    const [feeds, categoryData, regionData] = await Promise.all([
+      feedsResponse.json(),
+      categoriesResponse.json(),
+      regionsResponse.json()
+    ]);
+    return isValidDataset(feeds) ? { feeds, categories: categoryData, regions: regionData } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveToCache(responses) {
+  if (!('caches' in window)) return;
+  const cache = await caches.open(DATA_CACHE);
+  await Promise.all([
+    cache.put(URLS.FEEDS, responses[0].clone()),
+    cache.put(URLS.CATEGORIES, responses[1].clone()),
+    cache.put(URLS.REGIONS, responses[2].clone()),
+    cache.put(CACHE_META_KEY, new Response(String(Date.now()), {
+      headers: { 'Content-Type': 'text/plain' }
+    }))
+  ]);
+}
+
+function scheduleCacheSave(responses) {
+  const save = function () { saveToCache(responses).catch(() => {}); };
+  if ('requestIdleCallback' in window) requestIdleCallback(save, { timeout: 2000 });
+  else setTimeout(save, 0);
+}
+
+async function fetchWithTimeout(url) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error(t('error-timeout'));
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
 export async function loadData() {
-  let cached = loadFromCache();
+  const cached = await loadFromCache();
   if (cached) {
     Object.assign(categories, cached.categories);
     Object.assign(regions, cached.regions);
@@ -45,77 +80,70 @@ export async function loadData() {
     return;
   }
 
-  let [feedsRes, catsRes, regionsRes] = await Promise.all([
-    fetch(URLS.FEEDS),
-    fetch(URLS.CATEGORIES),
-    fetch(URLS.REGIONS)
+  const responses = await Promise.all([
+    fetchWithTimeout(URLS.FEEDS),
+    fetchWithTimeout(URLS.CATEGORIES),
+    fetchWithTimeout(URLS.REGIONS)
   ]);
+  if (!responses[0].ok) throw new Error(t('error-fetch', { status: responses[0].status }));
+  if (!responses[1].ok) throw new Error(t('error-fetch', { status: responses[1].status }));
+  if (!responses[2].ok) throw new Error(t('error-fetch', { status: responses[2].status }));
 
-  if (!feedsRes.ok) throw new Error(t('error-fetch', { status: feedsRes.status }));
-  if (!catsRes.ok) throw new Error(t('error-fetch', { status: catsRes.status }));
-  if (!regionsRes.ok) throw new Error(t('error-fetch', { status: regionsRes.status }));
-
-  let feedsData = await feedsRes.json();
-  let catsData = await catsRes.json();
-  let regionsData = await regionsRes.json();
-
-  saveToCache({ feeds: feedsData, categories: catsData, regions: regionsData });
+  const cacheResponses = responses.map(response => response.clone());
+  const [feedsData, catsData, regionsData] = await Promise.all([
+    responses[0].json(),
+    responses[1].json(),
+    responses[2].json()
+  ]);
+  if (!isValidDataset(feedsData)) throw new Error(t('error-invalid-data'));
 
   Object.assign(categories, catsData);
   Object.assign(regions, regionsData);
   buildFeedList(feedsData);
+  scheduleCacheSave(cacheResponses);
 }
 
 function buildFeedList(feedsData) {
   allFeeds.length = 0;
+  selectedFeeds.clear();
   feedNameById.clear();
   feedsByCategory.clear();
   feedsByRegion.clear();
   feedsBySite.clear();
-  let sites = feedsData.sites;
-
-  let firstMainSet = new Set();
+  const sites = feedsData.sites;
+  const firstMainSet = new Set();
 
   for (let s = 0; s < sites.length; s++) {
-    let site = sites[s];
-    let siteFeeds = site.feeds;
-
+    const site = sites[s];
+    const siteFeeds = site.feeds;
     for (let f = 0; f < siteFeeds.length; f++) {
-      let feed = siteFeeds[f];
-      let isProxy = feed.name.indexOf('[Proxy') !== -1;
-      let isMain = feed.status === 'active' && !firstMainSet.has(site.id);
+      const feed = siteFeeds[f];
+      const isProxy = feed.name.indexOf('[Proxy') !== -1;
+      const isMain = feed.status === 'active' && !firstMainSet.has(site.id);
       if (isMain) firstMainSet.add(site.id);
-
       feedNameById.set(feed.id, feed.name);
 
-      let category = feed.category || site.category;
-      let region = feed.region || site.region;
-      let description = feed.description || site.description || '';
-      let feedName = feed.name;
-      let siteName = site.name;
-      // Precomputed lowercased search index to avoid toLowerCase on every filter pass
-      let searchIndex = (feedName + ' ' + siteName + ' ' + description).toLowerCase();
-
-      let entry = {
+      const category = feed.category || site.category;
+      const region = feed.region || site.region;
+      const description = feed.description || site.description || '';
+      const searchIndex = (feed.name + ' ' + site.name + ' ' + description).toLowerCase();
+      const entry = {
         id: feed.id,
         siteId: site.id,
-        siteName: siteName,
-        feedName: feedName,
+        siteName: site.name,
+        feedName: feed.name,
         rssUrl: feed.rss_url,
         htmlUrl: feed.url || site.url,
-        description: description,
-        category: category,
-        region: region,
+        category,
+        region,
         status: feed.status,
-        isMain: isMain,
-        isProxy: isProxy,
+        isMain,
+        isProxy,
         duplicateOf: feed.duplicate_of || null,
         _search: searchIndex
       };
 
       allFeeds.push(entry);
-
-      // Indexes for faster category/region filtering
       if (category) {
         if (!feedsByCategory.has(category)) feedsByCategory.set(category, []);
         feedsByCategory.get(category).push(entry);
@@ -126,7 +154,6 @@ function buildFeedList(feedsData) {
       }
       if (!feedsBySite.has(site.id)) feedsBySite.set(site.id, []);
       feedsBySite.get(site.id).push(entry);
-
       selectedFeeds.add(feed.id);
     }
   }
