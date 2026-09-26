@@ -50,7 +50,7 @@ python -m http.server 8000
 
 **Con Node.js (http-server):**
 ```bash
-npx http-server
+pnpm dlx http-server
 ```
 
 **Con PHP:**

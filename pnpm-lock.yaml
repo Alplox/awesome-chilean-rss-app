@@ -1,0 +1,22 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      cuelume:
+        specifier: ^0.1.2
+        version: 0.1.2
+
+packages:
+
+  cuelume@0.1.2:
+    resolution: {integrity: sha512-VxL0k9l1fyKGot3VKM+wm5Xd2K75fVeBHdNTrR1EHiqKRtD6S5Dxy/vY7hwl9gXp3QT/TIywFXUos77n39YZVQ==}
+
+snapshots:
+
+  cuelume@0.1.2: {}

@@ -13,6 +13,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "packageManager": "pnpm@11.20.0",
   "type": "module",
   "bugs": {
     "url": "https://github.com/Alplox/awesome-chilean-rss-app/issues"
