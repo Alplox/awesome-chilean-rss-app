@@ -36,6 +36,7 @@ export default {
   'error-timeout': 'Loading data took too long. Please try again.',
   'error-invalid-data': 'The downloaded data has an invalid format.',
   'empty': 'No feeds match the current filters.',
+  'empty-search': 'No results found for "{query}". Try another search or adjust the filters.',
   'group-label': 'Category: {label}',
   'group-region-label': 'Region: {label}',
   'select-all': 'All',

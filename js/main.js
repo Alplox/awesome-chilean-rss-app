@@ -31,6 +31,7 @@ function cacheDom() {
   el.loading = document.getElementById('loading');
   el.error = document.getElementById('error');
   el.empty = document.getElementById('empty');
+  el.emptyMessage = document.getElementById('empty-message');
   el.copyStatus = document.getElementById('copy-status');
   el.retryBtn = document.getElementById('retry-btn');
   el.themeBtns = document.querySelectorAll('.theme-btn');

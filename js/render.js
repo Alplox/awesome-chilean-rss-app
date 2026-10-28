@@ -604,6 +604,12 @@ export function render() {
   });
 }
 
+function updateEmptyMessage() {
+  if (!el.emptyMessage) return;
+  let query = (filters.search || '').trim();
+  el.emptyMessage.textContent = query ? t('empty-search', { query }) : t('empty');
+}
+
 function doRender() {
   _visibleFeeds = getVisibleFeeds();
   if (_visibleFeeds.length === 0) {
@@ -611,6 +617,7 @@ function doRender() {
     if (_virtualizer) _virtualizer.setItems([]);
     else el.feedList.replaceChildren();
     el.feedList.style.minHeight = '';
+    updateEmptyMessage();
     el.empty.hidden = false;
     el.main.setAttribute('aria-busy', 'false');
     updateCounter();

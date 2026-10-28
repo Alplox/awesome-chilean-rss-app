@@ -294,7 +294,8 @@
         <button class="retry-btn" id="retry-btn" type="button" data-i18n="retry">Reintentar</button>
       </div>
       <div class="feed-list" id="feed-list" role="region" aria-label="Lista de feeds"></div>
-      <div class="empty-state" id="empty" hidden data-i18n="empty" role="status" aria-live="polite">No se encontraron feeds con los filtros actuales.
+      <div class="empty-state" id="empty" hidden role="status" aria-live="polite">
+        <span id="empty-message" data-i18n="empty">No se encontraron feeds con los filtros actuales.</span>
       </div>
       <div class="sr-only" id="copy-status" role="status" aria-live="polite"></div>
     </main>

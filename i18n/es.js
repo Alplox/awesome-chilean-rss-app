@@ -36,6 +36,7 @@ export default {
   'error-timeout': 'La carga de datos tardo demasiado. Intenta nuevamente.',
   'error-invalid-data': 'Los datos descargados no tienen un formato valido.',
   'empty': 'No se encontraron feeds con los filtros actuales.',
+  'empty-search': 'No se encontraron resultados para «{query}». Prueba con otra búsqueda o ajusta los filtros.',
   'group-label': 'Categoria: {label}',
   'group-region-label': 'Region: {label}',
   'select-all': 'Todo',

@@ -34,6 +34,7 @@ export default {
   'error-timeout': 'O carregamento dos dados demorou demais. Tente novamente.',
   'error-invalid-data': 'Os dados baixados possuem um formato inválido.',
   'empty': 'Nenhum feed corresponde aos filtros atuais.',
+  'empty-search': 'Nenhum resultado encontrado para "{query}". Tente outra busca ou ajuste os filtros.',
   'group-label': 'Categoria: {label}',
   'group-region-label': 'Regiao: {label}',
   'select-all': 'Tudo',
